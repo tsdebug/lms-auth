@@ -1,14 +1,6 @@
-import Home from "./inner";
-import { preloadQuery, preloadedQueryResult } from "convex/nextjs";
-import { api } from "@/convex/_generated/api";
 import Image from "next/image";
 
 export default async function ServerPage() {
-  const preloaded = await preloadQuery(api.myFunctions.listNumbers, {
-    count: 3,
-  });
-
-  const data = preloadedQueryResult(preloaded);
 
   return (
     <main className="p-8 flex flex-col gap-6 mx-auto max-w-2xl">
@@ -46,11 +38,10 @@ export default async function ServerPage() {
         </h2>
         <code className="bg-white dark:bg-slate-900 p-4 rounded-lg border border-slate-300 dark:border-slate-600 overflow-x-auto">
           <pre className="text-sm text-slate-700 dark:text-slate-300">
-            {JSON.stringify(data, null, 2)}
+            
           </pre>
         </code>
       </div>
-      <Home preloaded={preloaded} />
     </main>
   );
 }
