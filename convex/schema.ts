@@ -2,6 +2,9 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 
+// 1. We extract the default users table from Convex Auth
+const authUsers = authTables.users;
+
 export default defineSchema({
 
   ...authTables,  // adds users, sessions, and other tables needed for authentication
@@ -9,48 +12,61 @@ export default defineSchema({
   // - `v.string()` = Any random text like "abc123" or "hello"
   // - `v.id("users")` = A REAL ID that points to an ACTUAL user in the users table
 
-  // ----- Users table ----- (Don't need this if using Auth, but keeping here for reference - Convex Auth creates its own users table with email, passwordHash, etc.)
+  // ----- Users table (The Single Source of Truth for Auth & Profiles) -----
+  users: defineTable({
+    ...authUsers.validator.fields, // Keeps email, passwordHash, etc. from Auth
+    role: v.optional(v.union(v.literal("teacher"), v.literal("student"))),
+    fName: v.optional(v.string()),
+    mName: v.optional(v.string()),
+    lName: v.optional(v.string()),
+    slug: v.optional(v.string()),
+    pfpUrl: v.optional(v.string()),
+    bio: v.optional(v.string()),
+  }).index("email", ["email"])
+    .index("slug", ["slug"]),
 
-  // users: defineTable({
-  //   email: v.string(),
-  //   passwordHash: v.string(),
+
+  // DELETED: profiles, roles, user_roles. (They are no longer needed!)
+
+  // ----- Profiles table -----
+
+  // profiles: defineTable({
+  //   userId: v.id("users"),
   //   fName: v.string(),
   //   mName: v.optional(v.string()),
   //   lName: v.string(),
   //   slug: v.string(),
+  //   pfpUrl: v.optional(v.string()),
+  //   bio: v.optional(v.string()),
   //   createdAt: v.number(),
   //   updatedAt: v.number(),
   //   deletedAt: v.optional(v.number()),
-  // }).index("email", ["email"])
-  //   .index("slug", ["slug"]),
-
-  // ----- Profiles table -----
-
-  profiles: defineTable({
-    userId: v.id("users"),
-    fName: v.string(),
-    mName: v.optional(v.string()),
-    lName: v.string(),
-    slug: v.string(),
-    pfpUrl: v.optional(v.string()),
-    bio: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    deletedAt: v.optional(v.number()),
-  })
-    .index("userId", ["userId"])  // Foreign key
-    .index("slug", ["slug"]),   // to search profiles by slug for public profile pages
+  // })
+  //   .index("userId", ["userId"])  // Foreign key
+  //   .index("slug", ["slug"]),   // to search profiles by slug for public profile pages
 
 
-  // ----- Roles table -----
+  // // ----- Roles table -----
 
-  roles: defineTable({
-    name: v.string(),   // "Student", "Course Creator", "Moderator", etc.
-    description: v.optional(v.string()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    deletedAt: v.optional(v.number()),
-  }).index("name", ["name"]),       // to search roles by name
+  // roles: defineTable({
+  //   name: v.string(),   // "Student", "Course Creator", "Moderator", etc.
+  //   description: v.optional(v.string()),
+  //   createdAt: v.number(),
+  //   updatedAt: v.number(),
+  //   deletedAt: v.optional(v.number()),
+  // }).index("name", ["name"]),       // to search roles by name
+
+  // // ----- Bridge table b/w users and roles-----
+  // user_roles: defineTable({
+  //   userId: v.id("users"),
+  //   roleId: v.id("roles"),
+  //   createdAt: v.number(),
+  //   updatedAt: v.number(),
+  //   deletedAt: v.optional(v.number()),
+  // })
+  //   .index("userId", ["userId"])
+  //   .index("roleId", ["roleId"])
+  //   .index("userId_roleId", ["userId", "roleId"]),
 
   // ----- Courses table -----
   courses: defineTable({
@@ -134,18 +150,6 @@ export default defineSchema({
     endTime: v.string(),    // e.g., 17:00
     isAvailable: v.boolean(),  // true = available, false = blocked
   }).index("userId", ["userId"]),  // Foreign key
-
-  // ----- Bridge table b/w users and roles-----
-  user_roles: defineTable({
-    userId: v.id("users"),
-    roleId: v.id("roles"),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    deletedAt: v.optional(v.number()),
-  })
-    .index("userId", ["userId"])
-    .index("roleId", ["roleId"])
-    .index("userId_roleId", ["userId", "roleId"]),
 
   // ----- Quiz attempts table -----
   quiz_attempts: defineTable({
