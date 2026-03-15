@@ -56,6 +56,7 @@ export default defineSchema({
   //   deletedAt: v.optional(v.number()),
   // }).index("name", ["name"]),       // to search roles by name
 
+  
   // // ----- Bridge table b/w users and roles-----
   // user_roles: defineTable({
   //   userId: v.id("users"),
