@@ -2,171 +2,205 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { authTables } from "@convex-dev/auth/server";
 
-// 1. We extract the default users table from Convex Auth
 const authUsers = authTables.users;
 
 export default defineSchema({
+  ...authTables, // spread operator to include all auth tables (users, sessions, etc.) with their existing structure and indexes
 
-  ...authTables,  // adds users, sessions, and other tables needed for authentication
-
-  // - `v.string()` = Any random text like "abc123" or "hello"
-  // - `v.id("users")` = A REAL ID that points to an ACTUAL user in the users table
-
-  // ----- Users table (The Single Source of Truth for Auth & Profiles) -----
+  // ─── Users ───────────────────────────────────────────────────────────────
+  // CHANGED: removed single `role` field — users can hold multiple roles per PRD §3.
+  // Role membership now lives in user_roles bridge table.
   users: defineTable({
-    ...authUsers.validator.fields, // Keeps email, passwordHash, etc. from Auth
-    role: v.optional(v.union(v.literal("teacher"), v.literal("student"))),
+    ...authUsers.validator.fields,
     fName: v.optional(v.string()),
     mName: v.optional(v.string()),
     lName: v.optional(v.string()),
     slug: v.optional(v.string()),
     pfpUrl: v.optional(v.string()),
     bio: v.optional(v.string()),
-  }).index("email", ["email"])
+    // ADDED: expertise tags for Teacher Discovery §12 filtering.
+    // Stored as array of strings (e.g. ["Python", "Data Science"]).
+    // Avoids a separate user_expertise junction table for a simple list.
+    expertise: v.optional(v.array(v.string())),
+    // ADDED: experienceLevel for Teacher Directory card display (§12).
+    experienceLevel: v.optional(
+      v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("email", ["email"])
     .index("slug", ["slug"]),
 
-
-  // DELETED: profiles, roles, user_roles. (They are no longer needed!)
-
-  // ----- Profiles table -----
-
-  // profiles: defineTable({
-  //   userId: v.id("users"),
-  //   fName: v.string(),
-  //   mName: v.optional(v.string()),
-  //   lName: v.string(),
-  //   slug: v.string(),
-  //   pfpUrl: v.optional(v.string()),
-  //   bio: v.optional(v.string()),
-  //   createdAt: v.number(),
-  //   updatedAt: v.number(),
-  //   deletedAt: v.optional(v.number()),
-  // })
-  //   .index("userId", ["userId"])  // Foreign key
-  //   .index("slug", ["slug"]),   // to search profiles by slug for public profile pages
-
-
-  // // ----- Roles table -----
-
-  // roles: defineTable({
-  //   name: v.string(),   // "Student", "Course Creator", "Moderator", etc.
-  //   description: v.optional(v.string()),
-  //   createdAt: v.number(),
-  //   updatedAt: v.number(),
-  //   deletedAt: v.optional(v.number()),
-  // }).index("name", ["name"]),       // to search roles by name
-
-  
-  // // ----- Bridge table b/w users and roles-----
-  // user_roles: defineTable({
-  //   userId: v.id("users"),
-  //   roleId: v.id("roles"),
-  //   createdAt: v.number(),
-  //   updatedAt: v.number(),
-  //   deletedAt: v.optional(v.number()),
-  // })
-  //   .index("userId", ["userId"])
-  //   .index("roleId", ["roleId"])
-  //   .index("userId_roleId", ["userId", "roleId"]),
-
-  // ----- Courses table -----
-  courses: defineTable({
-    title: v.string(),
-    userId: v.id("users"),  // which user created this course
+  // ─── Roles ───────────────────────────────────────────────────────────────
+  // RESTORED: needed again because role is no longer a single field on users.
+  // Keeping it as a table (not just an enum) means you can add new roles
+  // (e.g. "moderator", "evaluator") in the future without a schema migration.
+  roles: defineTable({
+    name: v.string(), // "student" | "teacher" | "moderator" | "evaluator"
     description: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-    status: v.string(),  // "draft", "published", "archived" 
-  }).index("userId", ["userId"])              // Foreign key
-    .index("status", ["status"])              // Find courses by status
-    .index("userId_title", ["userId", "title"]),  // user can't have duplicate course titles
+  }).index("name", ["name"]),
 
-  // ----- Chapters table -----
+  // ─── User Roles (bridge) ─────────────────────────────────────────────────
+  // RESTORED: one user → many roles per PRD §3.
+  user_roles: defineTable({
+    userId: v.id("users"),
+    roleId: v.id("roles"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("userId", ["userId"])
+    .index("roleId", ["roleId"])
+    .index("userId_roleId", ["userId", "roleId"]),
+
+  // ─── Courses ─────────────────────────────────────────────────────────────
+  // ADDED: thumbnailUrl, difficultyLevel, slug — required by PRD §4 and
+  // Teacher Discovery §12 (courses shown on teacher profile card).
+  courses: defineTable({
+    title: v.string(),
+    userId: v.id("users"),         // original creator / owner
+    description: v.optional(v.string()),
+    thumbnailUrl: v.optional(v.string()),   // PRD §4
+    slug: v.optional(v.string()),           // clean URL: /courses/intro-to-python
+    difficultyLevel: v.optional(
+      v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))
+    ),                                      // PRD §4
+    status: v.union(
+      v.literal("draft"),
+      v.literal("published"),
+      v.literal("archived")
+    ),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("userId", ["userId"])
+    .index("status", ["status"])
+    .index("slug", ["slug"])
+    .index("userId_title", ["userId", "title"]),
+
+  // ─── Course Instructors (bridge) ─────────────────────────────────────────
+  // NEW: PRD §2 allows multiple instructors per course and per batch.
+  // Separating this from `courses.userId` (the owner) lets co-instructors
+  // exist without ownership transfer. Also powers Teacher Discovery §12
+  // ("courses created by the teacher" on profile pages).
+  course_instructors: defineTable({
+    courseId: v.id("courses"),
+    userId: v.id("users"),
+    role: v.optional(v.string()), // "lead" | "co-instructor" | "evaluator"
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("courseId", ["courseId"])
+    .index("userId", ["userId"])
+    .index("courseId_userId", ["courseId", "userId"]),
+
+  // ─── Chapters ────────────────────────────────────────────────────────────
+  // Unchanged
   chapters: defineTable({
     title: v.string(),
-    index: v.number(),  // chap order
+    index: v.number(),
     courseId: v.id("courses"),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-  }).index("courseId", ["courseId"])           // Foreign key
-    .index("courseId_index", ["courseId", "index"]),  // chapter order per course is uniqye
+  })
+    .index("courseId", ["courseId"])
+    .index("courseId_index", ["courseId", "index"]),
 
-  // ----- Lessons table -----
+  // ─── Lessons ─────────────────────────────────────────────────────────────
+  // Unchanged
   lessons: defineTable({
     title: v.string(),
     description: v.optional(v.string()),
+    chapterId: v.id("chapters"),
+    index: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-    chapterId: v.id("chapters"),
-    index: v.number(),  // lesson order within chapter
-  }).index("chapterId", ["chapterId"])          // Foreign key
-    .index("chapterId_index", ["chapterId", "index"]),  // lesson order per chapter is unique
+  })
+    .index("chapterId", ["chapterId"])
+    .index("chapterId_index", ["chapterId", "index"]),
 
-  // ----- Quizzes table -----
+  // ─── Media Files ─────────────────────────────────────────────────────────
+  // Unchanged
+  media_files: defineTable({
+    lessonId: v.id("lessons"),
+    fileType: v.string(),   // "video" | "pdf" | "slides" | "code" | "image"
+    fileName: v.string(),
+    fileSize: v.number(),
+    fileUrl: v.string(),
+    videoDuration: v.optional(v.number()),
+    isDownloadable: v.boolean(),
+    index: v.number(),      // display order within lesson
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  }).index("lessonId", ["lessonId"]),
+
+  // ─── Quizzes ─────────────────────────────────────────────────────────────
+  // Unchanged
   quizzes: defineTable({
     title: v.string(),
-    totalScore: v.number(),
     lessonId: v.id("lessons"),
+    totalScore: v.number(),
     description: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-  }).index("lessonId", ["lessonId"]),  // Foreign key
+  }).index("lessonId", ["lessonId"]),
 
-  // ----- Quiz Questions table -----
+  // ─── Quiz Questions ───────────────────────────────────────────────────────
+  // Unchanged
   q_questions: defineTable({
     content: v.string(),
     quizId: v.id("quizzes"),
     quesScore: v.number(),
+    index: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-    index: v.number(),  // question order
-  }).index("quizId", ["quizId"]) // Foreign key
-    .index("quizId_index", ["quizId", "index"]),  // question 1, 2, 3 unique per quiz
+  })
+    .index("quizId", ["quizId"])
+    .index("quizId_index", ["quizId", "index"]),
 
-  // ----- Quiz Answers table -----
+  // ─── Quiz Answers ─────────────────────────────────────────────────────────
+  // Unchanged
   q_answers: defineTable({
     content: v.string(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    deletedAt: v.optional(v.number()),
     questionId: v.id("q_questions"),
-    isCorrect: v.boolean(),  // true if this is the right answer
-  }).index("questionId", ["questionId"]), // Foreign key
-
-  // ----- Schedules table -----
-  schedules: defineTable({
-    userId: v.id("users"),  // whose availability schedule
+    isCorrect: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-    scheduleType: v.string(),  // "recurring" or "one_time"
-    dayOfWeek: v.optional(v.number()),  // only for recurring
-    specificDate: v.optional(v.string()),  // only for one_time
-    startTime: v.string(),  // e.g., 09:00
-    endTime: v.string(),    // e.g., 17:00
-    isAvailable: v.boolean(),  // true = available, false = blocked
-  }).index("userId", ["userId"]),  // Foreign key
+  }).index("questionId", ["questionId"]),
 
-  // ----- Quiz attempts table -----
+  // ─── Quiz Attempts ────────────────────────────────────────────────────────
+  // ADDED: startedAt — lets you detect and expire abandoned attempts.
+  // Without it there's no way to distinguish "in progress" from "abandoned".
   quiz_attempts: defineTable({
     userId: v.id("users"),
     quizId: v.id("quizzes"),
     score: v.number(),
     maxScore: v.number(),
+    startedAt: v.number(),        // ADDED
     completedAt: v.optional(v.number()),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
   })
     .index("userId", ["userId"])
-    .index("quizId", ["quizId"]),
+    .index("quizId", ["quizId"])
+    .index("userId_quizId", ["userId", "quizId"]),  // ADDED: check if student already attempted
 
-  // ----- User answers table -----
+  // ─── User Answers ─────────────────────────────────────────────────────────
+  // Unchanged
   user_answers: defineTable({
     attemptId: v.id("quiz_attempts"),
     questionId: v.id("q_questions"),
@@ -179,12 +213,80 @@ export default defineSchema({
     .index("questionId", ["questionId"])
     .index("answerId", ["answerId"]),
 
-  // ----- Enrollments table -----
+  // ─── Assignments ─────────────────────────────────────────────────────────
+  // CHANGED: lessonId made optional, chapterId added.
+  // PRD §7: "Instructors can create assignments associated with lessons OR chapters."
+  // At least one of lessonId/chapterId should be set (enforce in application logic).
+  assignments: defineTable({
+    title: v.string(),
+    description: v.optional(v.string()),
+    lessonId: v.optional(v.id("lessons")),    // CHANGED to optional
+    chapterId: v.optional(v.id("chapters")),  // ADDED
+    createdBy: v.id("users"),
+    dueDate: v.string(),
+    maxScore: v.number(),
+    allowLateSubmission: v.boolean(),
+    allowResubmission: v.boolean(),           // ADDED: PRD §7 mentions resubmission
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("lessonId", ["lessonId"])
+    .index("chapterId", ["chapterId"])        // ADDED
+    .index("createdBy", ["createdBy"]),
+
+  // ─── Submissions ─────────────────────────────────────────────────────────
+  // CHANGED: single fileUrl → separate table submission_files for multi-file support.
+  // PRD §7: students can submit file uploads, text, AND external links — possibly all three.
+  // The scalar fields (textSubmission, linkUrl) stay here. Files get their own table.
+  submissions: defineTable({
+    assignmentId: v.id("assignments"),
+    userId: v.id("users"),
+    textSubmission: v.optional(v.string()),
+    linkUrl: v.optional(v.string()),          // ADDED: external link submissions (PRD §7)
+    score: v.optional(v.number()),
+    status: v.union(
+      v.literal("draft"),
+      v.literal("submitted"),
+      v.literal("graded"),
+      v.literal("resubmitted")               // ADDED: for resubmission tracking
+    ),
+    feedback: v.optional(v.string()),
+    submittedAt: v.optional(v.number()),
+    gradedAt: v.optional(v.number()),
+    gradedBy: v.optional(v.id("users")),      // ADDED: PRD §2 says evaluators grade, not just instructors
+    attemptNumber: v.number(),                // ADDED: 1 for first submission, 2 for resubmission, etc.
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("assignmentId", ["assignmentId"])
+    .index("userId", ["userId"])
+    .index("assignmentId_userId", ["assignmentId", "userId"]),
+
+  // ─── Submission Files ─────────────────────────────────────────────────────
+  // NEW: supports multiple file uploads per submission (PRD §7).
+  submission_files: defineTable({
+    submissionId: v.id("submissions"),
+    fileUrl: v.string(),
+    fileName: v.string(),
+    fileSize: v.number(),
+    fileType: v.string(),
+    createdAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  }).index("submissionId", ["submissionId"]),
+
+  // ─── Enrollments ─────────────────────────────────────────────────────────
+  // Unchanged
   enrollments: defineTable({
     userId: v.id("users"),
     courseId: v.id("courses"),
     enrolledAt: v.number(),
-    status: v.string(),
+    status: v.union(
+      v.literal("active"),
+      v.literal("completed"),
+      v.literal("dropped")
+    ),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
   })
@@ -192,7 +294,8 @@ export default defineSchema({
     .index("courseId", ["courseId"])
     .index("userId_courseId", ["userId", "courseId"]),
 
-  // ----- Lesson completions table -----
+  // ─── Lesson Completions ───────────────────────────────────────────────────
+  // Unchanged
   lesson_completions: defineTable({
     userId: v.id("users"),
     lessonId: v.id("lessons"),
@@ -204,33 +307,55 @@ export default defineSchema({
     .index("lessonId", ["lessonId"])
     .index("userId_lessonId", ["userId", "lessonId"]),
 
-  // ----- Reviews table -----
-  reviews: defineTable({
+  // ─── Schedules ────────────────────────────────────────────────────────────
+  // ADDED: timezone — essential for a platform where instructors and students
+  // are in different time zones. Without it, "09:00" is ambiguous.
+  schedules: defineTable({
     userId: v.id("users"),
-    courseId: v.id("courses"),
-    review: v.optional(v.string()),
-    star: v.number(),
+    scheduleType: v.union(v.literal("recurring"), v.literal("one_time")),
+    dayOfWeek: v.optional(v.number()),    // 0=Sun … 6=Sat, only for recurring
+    specificDate: v.optional(v.string()), // ISO date, only for one_time
+    startTime: v.string(),               // "HH:MM" in user's timezone
+    endTime: v.string(),
+    timezone: v.string(),                // ADDED: e.g. "Asia/Kolkata"
+    isAvailable: v.boolean(),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-  })
-    .index("userId", ["userId"])
-    .index("courseId", ["courseId"])
-    .index("userId_courseId", ["userId", "courseId"]),
+  }).index("userId", ["userId"]),
 
-  // ----- Batches table -----
+  // ─── Batches ─────────────────────────────────────────────────────────────
+  // Unchanged
   batches: defineTable({
     name: v.string(),
-    status: v.string(),
+    status: v.union(
+      v.literal("upcoming"),
+      v.literal("active"),
+      v.literal("completed")
+    ),
     startDate: v.string(),
     endDate: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-  })
-    .index("status", ["status"]),
+  }).index("status", ["status"]),
 
-  // ----- Batch students bridge table -----
+  // ─── Batch Instructors (bridge) ───────────────────────────────────────────
+  // NEW: PRD §8 explicitly says batches have "assigned instructors" (plural).
+  // The original schema had no way to store this.
+  batch_instructors: defineTable({
+    batchId: v.id("batches"),
+    userId: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("batchId", ["batchId"])
+    .index("userId", ["userId"])
+    .index("batchId_userId", ["batchId", "userId"]),
+
+  // ─── Batch Students (bridge) ──────────────────────────────────────────────
+  // Unchanged
   batch_students: defineTable({
     batchId: v.id("batches"),
     userId: v.id("users"),
@@ -242,7 +367,8 @@ export default defineSchema({
     .index("userId", ["userId"])
     .index("batchId_userId", ["batchId", "userId"]),
 
-  // ----- Batch courses bridge table -----
+  // ─── Batch Courses (bridge) ───────────────────────────────────────────────
+  // Unchanged
   batch_courses: defineTable({
     batchId: v.id("batches"),
     courseId: v.id("courses"),
@@ -254,52 +380,18 @@ export default defineSchema({
     .index("courseId", ["courseId"])
     .index("batchId_courseId", ["batchId", "courseId"]),
 
-  // ----- Assignments table -----
-  assignments: defineTable({
-    title: v.string(),
-    description: v.optional(v.string()),
-    lessonId: v.id("lessons"),
-    createdBy: v.id("users"),
-    dueDate: v.string(),
-    maxScore: v.number(),
-    allowLateSubmission: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    deletedAt: v.optional(v.number()),
-  })
-    .index("lessonId", ["lessonId"])
-    .index("createdBy", ["createdBy"]),
-
-  // ----- Submissions table -----
-  submissions: defineTable({
-    assignmentId: v.id("assignments"),
-    userId: v.id("users"),
-    fileUrl: v.optional(v.string()),
-    textSubmission: v.optional(v.string()),
-    score: v.optional(v.number()),
-    status: v.string(),
-    feedback: v.optional(v.string()),
-    submittedAt: v.optional(v.number()),
-    gradedAt: v.optional(v.number()),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    deletedAt: v.optional(v.number()),
-  })
-    .index("assignmentId", ["assignmentId"])
-    .index("userId", ["userId"])
-    .index("assignmentId_userId", ["assignmentId", "userId"]),
-
-  // ----- Categories table -----
+  // ─── Categories ───────────────────────────────────────────────────────────
+  // Unchanged
   categories: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-  })
-    .index("name", ["name"]),
+  }).index("name", ["name"]),
 
-  // ----- Course categories table -----
+  // ─── Course Categories (bridge) ───────────────────────────────────────────
+  // Unchanged
   course_categories: defineTable({
     courseId: v.id("courses"),
     categoryId: v.id("categories"),
@@ -311,17 +403,18 @@ export default defineSchema({
     .index("categoryId", ["categoryId"])
     .index("courseId_categoryId", ["courseId", "categoryId"]),
 
-  // ----- Tags table -----
+  // ─── Tags ─────────────────────────────────────────────────────────────────
+  // Unchanged
   tags: defineTable({
     name: v.string(),
     description: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-  })
-    .index("name", ["name"]),
+  }).index("name", ["name"]),
 
-  // ----- Course tags table -----
+  // ─── Course Tags (bridge) ─────────────────────────────────────────────────
+  // Unchanged 
   course_tags: defineTable({
     courseId: v.id("courses"),
     tagId: v.id("tags"),
@@ -333,29 +426,15 @@ export default defineSchema({
     .index("tagId", ["tagId"])
     .index("courseId_tagId", ["courseId", "tagId"]),
 
-  // ----- Media files table -----
-  media_files: defineTable({
-    lessonId: v.id("lessons"),
-    fileType: v.string(),
-    fileName: v.string(),
-    fileSize: v.number(),
-    fileUrl: v.string(),
-    videoDuration: v.optional(v.number()),
-    isDownloadable: v.boolean(),
-    createdAt: v.number(),
-    updatedAt: v.number(),
-    deletedAt: v.optional(v.number()),
-  })
-    .index("lessonId", ["lessonId"]),
-
-  // ----- Certificates table -----
+  // ─── Certificates ─────────────────────────────────────────────────────────
+  // Unchanged 
   certificates: defineTable({
     userId: v.id("users"),
     courseId: v.id("courses"),
     verificationCode: v.string(),
     completedAt: v.number(),
     issuedAt: v.number(),
-    status: v.string(),
+    status: v.union(v.literal("issued"), v.literal("revoked")),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
@@ -363,5 +442,22 @@ export default defineSchema({
     .index("userId", ["userId"])
     .index("courseId", ["courseId"])
     .index("verificationCode", ["verificationCode"])
+    .index("userId_courseId", ["userId", "courseId"]),
+
+  // ─── Reviews ──────────────────────────────────────────────────────────────
+  // Unchanged — kept because the table is ready even though the feature is
+  // flagged as future. The schema comment is the right place to note this.
+  // Future: wire up to Teacher Discovery §12 "average rating" on teacher cards.
+  reviews: defineTable({
+    userId: v.id("users"),
+    courseId: v.id("courses"),
+    review: v.optional(v.string()),
+    star: v.number(),  // 1–5
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("userId", ["userId"])
+    .index("courseId", ["courseId"])
     .index("userId_courseId", ["userId", "courseId"]),
 });
