@@ -1,3 +1,31 @@
+# Technical Requirements Document (TRD)
+## Learning Management System (LMS)
+
+| | |
+|---|---|
+| **Version** | 1.0 |
+| **Status** | Draft |
+| **Last Updated** | 2026-03-21 |
+| **Author** | Tanushree Shaw |
+| **Companion Document** | [PRD.md](./PRD.md) |
+
+---
+
+## Table of Contents
+
+1. [Introduction & Overview](#1-introduction--overview)
+2. [Definitions, Acronyms & Abbreviations](#2-definitions-acronyms--abbreviations)
+3. [References](#3-references)
+4. [Overall Description](#4-overall-description)
+5. [Functional Requirements](#5-functional-requirements)
+6. [Non-Functional Requirements](#6-non-functional-requirements)
+7. [System Architecture & Design](#7-system-architecture--design)
+8. [Technical Specifications](#8-technical-specifications)
+9. [Acceptance Criteria & Test Plan](#9-acceptance-criteria--test-plan)
+10. [Glossary & Appendix](#10-glossary--appendix)
+
+---
+
 ## 1. Introduction & Overview
 
 ### 1.1 Purpose
@@ -87,5 +115,75 @@ The LMS is a web-based platform where instructors create structured courses and 
 | NFR | Non-Functional Requirement |
 | REQ | Requirement |
 | AC | Acceptance Criterion |
+
+---
+
+## 3. References
+
+| Document | Location | Purpose |
+|---|---|---|
+| Product Requirements Document | [PRD.md](./PRD.md) | Feature requirements and user stories |
+| Convex documentation | https://docs.convex.dev | Backend platform reference |
+| Convex Auth documentation | https://labs.convex.dev/auth | Authentication implementation reference |
+| Convex schema reference | `convex/schema.ts` | Database schema — single source of truth for types |
+| Next.js App Router docs | https://nextjs.org/docs/app | Frontend framework reference |
+| Cloudflare R2 documentation | https://developers.cloudflare.com/r2 | File storage API reference |
+| shadcn/ui documentation | https://ui.shadcn.com | UI component library reference |
+| Tailwind CSS documentation | https://tailwindcss.com/docs | Styling framework reference |
+
+---
+
+## 4. Overall Description
+
+### 4.1 Technology Stack
+
+| Layer | Technology | 
+|---|---|
+| Frontend framework | Next.js (App Router) |
+| Backend platform | Convex |
+| Authentication | Convex Auth | 
+| Language | TypeScript | 
+| Styling | Tailwind CSS | 
+| UI component library | shadcn/ui |
+| File storage | Cloudflare R2 | 
+| Frontend hosting | Vercel | 
+| Backend hosting | Convex Cloud |
+
+### 4.2 Technology Rationale
+
+**Next.js** was chosen for its hybrid rendering model. Public pages (course catalogue, instructor directory) benefit from SSR for SEO and initial load performance. Authenticated dashboards use client components with reactive Convex subscriptions. The App Router's route group feature cleanly separates public, auth, and authenticated route trees.
+
+**Convex** replaces the traditional REST API + relational database stack with serverless backend functions and a reactive document database. Key reasons for this choice: queries are reactive by default, eliminating the need for polling or manual cache invalidation on dashboards; the schema generates TypeScript types automatically, meaning database field changes surface as compile errors rather than runtime bugs; and infrastructure management (scaling, backups, deployment) is handled entirely by the platform.
+
+**Convex Auth** was chosen over external providers (Auth0, Clerk) to keep the entire auth flow within the same type system and deployment unit as the rest of the backend. It supports email/password in v1 and can be extended to OAuth providers without architectural changes.
+
+**Cloudflare R2** was chosen over AWS S3 as the file storage provider. R2 charges no egress fees, which matters for a video-heavy platform. It exposes an S3-compatible API, meaning the AWS SDK works without modification and the switch is reversible.
+
+**TypeScript** is used end-to-end. Convex's schema-to-types generation means the database, backend, and frontend all share the same type definitions from a single source of truth.
+
+### 4.3 Assumptions
+
+- All users access the system via a modern web browser. Mobile app support is out of scope for v1.
+- Instructors upload media files directly from the browser via the teacher dashboard.
+- Video files are served via CDN and streamed. The platform does not transcode video.
+- The system operates in a single region in v1. Multi-region deployment is a future concern.
+- Email notifications are out of scope for v1. No email provider integration is required.
+- All time-related data is stored as UTC. Timezone conversion is handled client-side.
+
+### 4.4 Constraints
+
+- Convex's free tier limits apply during development. Production deployment requires a paid Convex plan.
+- Convex mutations cannot call external APIs directly — this must be done via Actions.
+- File uploads must be routed through Convex Actions (server-side) to keep storage credentials out of the browser.
+- Next.js server components cannot use Convex client-side hooks (`useQuery`, `useMutation`). Server-side data fetching uses the Convex HTTP client.
+
+### 4.5 Dependencies
+
+| Dependency | Type | Impact if unavailable |
+|---|---|---|
+| Convex Cloud | Runtime (backend + DB) | Complete system outage |
+| Vercel | Runtime (frontend) | Frontend unavailable; backend still functions |
+| Cloudflare R2 | Runtime (file storage) | File uploads fail; existing URLs unaffected |
+| Convex Auth | Runtime (auth) | Login and signup unavailable |
 
 ---
