@@ -22,6 +22,8 @@ export default defineSchema({
     // Stored as array of strings (e.g. ["Python", "Data Science"]).
     // Avoids a separate user_expertise junction table for a simple list.
     expertise: v.optional(v.array(v.string())),
+    // ADDED: availability for mentoring/teaching sessions
+    availability: v.optional(v.string()),
     // ADDED: experienceLevel for Teacher Directory card display (§12).
     experienceLevel: v.optional(
       v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))
