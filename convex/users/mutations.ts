@@ -2,6 +2,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
 
+// createUserProfile - called when user submits profile form for the first time, to save their name and role
 export const createUserProfile = mutation({
     args: {
         // what arguments do we need here?
@@ -43,6 +44,36 @@ export const createUserProfile = mutation({
             roleId: role._id,
             createdAt: Date.now(),
             updatedAt: Date.now()
+        });
+    },
+});
+
+// updateUserProfile - allows authenticated users to update their profile fields
+export const updateUserProfile = mutation({
+    args: {
+        bio: v.optional(v.string()),
+        expertise: v.optional(v.array(v.string())),
+        availability: v.optional(v.string()),
+        slug: v.optional(v.string()),
+    },
+    
+    handler: async (ctx, args) => {
+        // 1. Verify the requester is authenticated
+        const authUserId = await getAuthUserId(ctx);
+        if (!authUserId) {
+            throw new Error("User must be authenticated");
+        }
+
+        // 2. Check if user exists
+        const existingUser = await ctx.db.get(authUserId);
+        if (!existingUser) {
+            throw new Error("User not found");
+        }
+
+        // 3. Update the user profile with provided fields
+        await ctx.db.patch(authUserId, {
+            ...args,
+            updatedAt: Date.now(),
         });
     },
 });
