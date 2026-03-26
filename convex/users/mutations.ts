@@ -9,6 +9,7 @@ export const createUserProfile = mutation({
         fName: v.string(),
         lName: v.string(),
         role: v.union(v.literal("student"), v.literal("teacher")),
+        slug: v.optional(v.string()),
     },
     // step 1: check if the user is authenticated
     // Verify the requester is authenticated
@@ -22,6 +23,17 @@ export const createUserProfile = mutation({
         const existingUser = await ctx.db.get(authUserId);
         if (!existingUser) {
             throw new Error("User not found");
+        }
+
+        if (args.slug) {
+            const existingSlug = await ctx.db
+                .query("users")
+                .withIndex("slug", (q) => q.eq("slug", args.slug))
+                .first();
+
+            if (existingSlug && existingSlug._id !== authUserId) {
+                throw new Error("Slug already in use");
+            }
         }
 
         await ctx.db.patch(authUserId, {   // don't need to insert email again — it's already in the users row that Convex Auth created, just updating that existing row with the extra fields... thus use patch, instead ofinsert
@@ -53,10 +65,9 @@ export const updateUserProfile = mutation({
     args: {
         bio: v.optional(v.string()),
         expertise: v.optional(v.array(v.string())),
-        availability: v.optional(v.string()),
         slug: v.optional(v.string()),
     },
-    
+
     handler: async (ctx, args) => {
         // 1. Verify the requester is authenticated
         const authUserId = await getAuthUserId(ctx);
