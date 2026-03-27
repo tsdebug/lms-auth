@@ -9,9 +9,12 @@
  */
 
 import type * as auth from "../auth.js";
+import type * as courses_mutations from "../courses/mutations.js";
 import type * as http from "../http.js";
 import type * as teachers_queries from "../teachers/queries.js";
 import type * as users from "../users.js";
+import type * as users_mutations from "../users/mutations.js";
+import type * as users_queries from "../users/queries.js";
 
 import type {
   ApiFromModules,
@@ -21,9 +24,12 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
+  "courses/mutations": typeof courses_mutations;
   http: typeof http;
   "teachers/queries": typeof teachers_queries;
   users: typeof users;
+  "users/mutations": typeof users_mutations;
+  "users/queries": typeof users_queries;
 }>;
 
 /**
