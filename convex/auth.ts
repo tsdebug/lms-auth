@@ -13,6 +13,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
           role: params.role as string, // "student" or "teacher"
           fName: params.fName as string,
           lName: params.lName as string,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
         };
       },
     }),
