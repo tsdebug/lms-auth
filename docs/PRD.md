@@ -36,6 +36,22 @@ Moderators help maintain the quality and integrity of the platform by reviewing 
 ### Evaluators
  
 Evaluators assist instructors by reviewing assignments, grading student submissions, and providing feedback.
+
+#### Clarity
+
+**Owner in course table**
+courses.userId — this is the permanent owner. The person who created the course. This never changes. It's used for things like:
+
+- Who can delete the course
+- Who can publish the course
+- Who can add/remove co-instructors
+
+**Lead in course_instructors table**
+course_instructors — this is the working team on the course. It can change over time. People can be added or removed. It's used for things like:
+
+- Who can edit course content
+- Who can grade submissions
+- Who can see student progress
  
 ---
  
