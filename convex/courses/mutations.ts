@@ -51,8 +51,25 @@ export const createCourse = mutation({
             }
         }
         // 4. insert into courses table
-        
+        const courseId = await ctx.db.insert("courses", {
+            title: args.title,
+            userId: authUserId,
+            description: args.description,
+            thumbnailUrl: args.thumbnailUrl,
+            slug: args.slug,
+            difficultyLevel: args.difficultyLevel,
+            status: "draft",
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        });
 
         // 5. insert into course_instructors table (the creator is the lead instructor)
+        await ctx.db.insert("course_instructors", {
+            courseId: courseId,
+            userId: authUserId,
+            role: "lead", // Course instructor role — what is your position on a specific course? "lead" | "co-instructor" | "evaluator"
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+        });
     },
 });
