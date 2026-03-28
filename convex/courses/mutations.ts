@@ -2,6 +2,9 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
+// args.something — data that came in from outside, from the frontend calling this function.
+// variable._id — data you fetched from the database inside the function itself.
+
 // createCourse - called when a teacher creates a new course, to save the course details and link it to the creator as the lead instructor
 export const createCourse = mutation({
     args: {
@@ -131,6 +134,71 @@ export const updateCourse = mutation({
     },
 });
 
+// publishCourse - called when a teacher wants to publish their course, to change the course status from "draft" to "published" in the courses table
+export const publishCourse = mutation({
+    args: {
+        courseId: v.id("courses"),
+    },
+    handler: async (ctx, args) => {
+        // 1. auth check
+        const authUserId = await getAuthUserId(ctx);
+        if(!authUserId){
+            throw new Error("User must be authenticated");
+        }
 
+        // 2. does the course even exist?
+        const existingCourse = await ctx.db.get(args.courseId);
+        if(!existingCourse){
+            throw new Error("Course not found");
+        }
+
+        // 3. role check - only instructors can publish courses
+        const isInstructor = await ctx.db
+            .query("course_instructors")
+            .withIndex("courseId_userId", (q)=> q.eq("courseId", args.courseId).eq("userId", authUserId))
+            .first();
+
+        if(!isInstructor){
+            throw new Error("Unauthorized: only instructors can publish courses");
+        }
+
+        // 4. current status check - only draft courses can be published
+        if(existingCourse.status !== "draft"){
+            throw new Error("Only draft courses can be published");
+        }
+
+        // 5. prerequisite check - a course must have at least one module with at least one lesson before it can be published
+        // * Get all chapters for this course 
+        // * For each chapter — check if it has at least one lesson 
+        // * If any chapter has zero lessons — throw an error
+        const chapters = await ctx.db
+        .query("chapters")
+        .withIndex("courseId", (q)=> q.eq("courseId", args.courseId))
+        .collect(); // cuz we need to collect all the matches to check them in the next step
+
+        // no chapters
+        if(chapters.length ===0){
+            throw new Error("Course must have at least one chapter to be published");
+        }
+
+        // is there at least one lesson in each chapter?
+        for(const chapter of chapters){
+            const lesson = await ctx.db
+            .query("lessons")
+            .withIndex("chapterId", (q)=> q.eq("chapterId", chapter._id))
+            .first();
+
+            if(!lesson){
+                throw new Error("Each chapter must have at least one lesson to be published");
+            }
+        }
+
+        // 6. update the course status to "published" in the courses table
+        await ctx.db.patch(args.courseId, {
+            status:"published",
+            updatedAt: Date.now(),
+        })
+     }
+})
 
 
