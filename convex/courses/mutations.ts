@@ -85,8 +85,8 @@ export const updateCourse = mutation({
         thumbnailUrl: v.optional(v.string()),   // PRD §4
         slug: v.optional(v.string()),
         difficultyLevel: v.optional(
-        v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))
-    ),
+            v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))
+        ),
     },
 
     handler: async (ctx, args) => {
@@ -105,10 +105,32 @@ export const updateCourse = mutation({
         // 3. role check 
         const isInstructor = await ctx.db
             .query("course_instructors") // if a row exists here for a user & course, that means they are an instructor on that course
-            .withIndex("courseId_userId", (q)=> q.eq("courseId", args.courseId).eq("userId", authUserId))
+            .withIndex("courseId_userId", (q) => q.eq("courseId", args.courseId).eq("userId", authUserId))
             .first();
-            if(!isInstructor){
-                throw new Error("Unauthorized: only instructors can update courses");
+        if (!isInstructor) {
+            throw new Error("Unauthorized: only instructors can update courses");
+        }
+
+        // 4. slug uniqueness check - if the instructor is trying to update the slug, we need to make sure the new slug is not already in use by another course
+        if (args.slug) {
+            const existingSlug = await ctx.db
+                .query("courses")
+                .withIndex("slug", (q) => q.eq("slug", args.slug))
+                .first();
+            if (existingSlug && existingSlug._id !== args.courseId) {
+                throw new Error("Slug already in use");
             }
+        }
+
+        // 5. update the course details in the courses table - only update the fields that were actually passed in the args (the optional ones might not be there, and we don't want to overwrite existing data with undefined)
+        const { courseId, ...fieldsToUpdate } = args; // to separate courseId from the rest of the fields
+        await ctx.db.patch(args.courseId, {
+            ...fieldsToUpdate,
+            updatedAt: Date.now(),
+        });
     },
 });
+
+
+
+
