@@ -201,4 +201,43 @@ export const publishCourse = mutation({
      }
 })
 
+// archiveCourse - called when a teacher wants to archive their course, to change the course status from "published" to "archived" in the courses table
+export const archiveCourse = mutation({
+    args: {
+        courseId: v.id("courses"),
+    },
+    handler: async (ctx, args) => {
 
+        // 1. auth check
+        const authUserId = await getAuthUserId(ctx);
+        if(!authUserId){
+            throw new Error("User must be authenticated");
+        }
+
+        // 2. does the course even exist?
+        const existingCourse = await ctx.db.get(args.courseId);
+        if(!existingCourse){
+            throw new Error("Course not found");
+        }
+
+        // 3. role check - only instructors can archive courses
+        const isInstructor = await ctx.db
+        .query("course_instructors")
+        .withIndex("courseId_userId", (q)=> q.eq("courseId", args.courseId).eq("userId", authUserId))
+        .first();
+        if(!isInstructor){
+            throw new Error("Unauthorized: only instructors can archive courses");
+        }
+
+        // 4. current status check - only published courses can be archived
+        if(existingCourse.status !== "published"){
+            throw new Error("Only published courses can be archived");
+        }
+
+        // 5. update the course status to "archived" in the courses table
+        await ctx.db.patch(args.courseId, {
+            status:"archived",
+            updatedAt: Date.now(),
+         })
+    }
+})
