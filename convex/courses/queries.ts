@@ -80,5 +80,12 @@ export const getCoursesByTeacher = query({
       throw new Error("Unauthorized");
     }
 
+    // Step 2 - get all courses for this teacher
+    const results = await ctx.db
+      .query("courses")
+      .withIndex("userId", (q) => q.eq("userId", authUserId))
+      .collect();
+
+    return results;
   }
 })
