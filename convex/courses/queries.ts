@@ -89,3 +89,46 @@ export const getCoursesByTeacher = query({
     return results;
   }
 })
+
+// getCourseDetails - Public query for course details page, which includes only published courses
+export const getCourseDetails = query({
+  args: {
+    courseId: v.id("courses"),
+  },
+  handler: async (ctx, args) => {
+
+    // 1. fetch the course using courseId
+    const course = await ctx.db.get(args.courseId); // Convex already knows which table from the ID type — don't need to specify it.
+
+    if (!course) {
+      throw new Error("Course not found");
+    }
+
+    // chapters of the said course
+    const chapters = await ctx.db
+      .query("chapters")
+      .withIndex("courseId", (q) => q.eq("courseId", args.courseId))
+      .collect();
+
+    // lessons of the said course but chapterwise
+    const chaptersWithLessons = await Promise.all(
+      chapters.map(async (chapter) => {
+        const lessons = await ctx.db
+          .query("lessons")
+          .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+          .collect();
+
+        return {
+          ...chapter,
+          lessons: lessons,
+        };
+      })
+    );
+
+    return {
+      ...course,
+      chapters: chaptersWithLessons,
+    };
+
+  }
+})
