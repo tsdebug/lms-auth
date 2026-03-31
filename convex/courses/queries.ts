@@ -1,6 +1,7 @@
 import { query } from "../_generated/server";
 import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
+import { getAuthUserId } from "@convex-dev/auth/server";
 
 // getCourses - Public query for paginated, filterable published course list
 export const getCourses = query({
@@ -48,12 +49,12 @@ export const getCourses = query({
     }
 
     // tag filter
-    if(args.tagId){
+    if (args.tagId) {
       // 1 - find all course_tags rows for this tag
       const courseTags = await ctx.db
-      .query("course_tags")
-      .withIndex("tagId", (q) => q.eq("tagId", args.tagId!))
-      .collect();
+        .query("course_tags")
+        .withIndex("tagId", (q) => q.eq("tagId", args.tagId!))
+        .collect();
 
       // 2 - extract just the courseIds into a simple array
       const courseIds = courseTags.map((ct) => ct.courseId); // Result is a plain array of IDs
@@ -61,10 +62,23 @@ export const getCourses = query({
       // 3 - keep only courses whose _id is in that array
       courses = courses.filter((course) => courseIds.includes(course._id));  // .includes() — checks if a value exists in an array
     }
-    
+
     // step 3 - return results with filtered courses
     return { ...results, page: courses };
   },
 });
 
 
+// getCoursesByTeacher - Private query for paginated, filterable course list for a specific teacher
+export const getCoursesByTeacher = query({
+  args: {},
+  handler: async (ctx) => {
+    // Step 1 - auth check
+    const authUserId = await getAuthUserId(ctx);
+
+    if (!authUserId) {
+      throw new Error("Unauthorized");
+    }
+
+  }
+})
