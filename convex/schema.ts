@@ -28,8 +28,8 @@ export default defineSchema({
     experienceLevel: v.optional(
       v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))
     ),
-    createdAt: v.number(),
-    updatedAt: v.number(),
+    createdAt: v.optional(v.number()),
+    updatedAt: v.optional(v.number()),
     deletedAt: v.optional(v.number()),
   })
     .index("email", ["email"])
