@@ -2,6 +2,42 @@ import { query } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
+// getCurrentUser - for getting the current authenticated user's profile with roles
+export const getCurrentUser = query({
+  handler: async (ctx) => {
+    // 1. Get the authenticated user ID
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) {
+      return null; // Not authenticated
+    }
+
+    // 2. Fetch the user profile
+    const user = await ctx.db.get(authUserId);
+    if (!user) {
+      return null;
+    }
+
+    // 3. Fetch all roles for this user
+    const userRoles = await ctx.db
+      .query("user_roles")
+      .withIndex("userId", (q) => q.eq("userId", authUserId))
+      .collect();
+
+    // 4. Get role details for each user_role entry
+    const roles = await Promise.all(
+      userRoles.map(async (ur) => {
+        const role = await ctx.db.get(ur.roleId);
+        return role;
+      })
+    );
+
+    return {
+      ...user, // spread operator to include all user fields (fName, lName, email, etc.)
+      roles: roles.filter(Boolean), // Filter out any null roles
+    };
+  },
+});
+
 // getUserProfile - for user profile page, need to fetch user info + all their roles
 export const getUserProfile = query({
   args: {
