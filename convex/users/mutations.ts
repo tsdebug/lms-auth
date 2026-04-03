@@ -43,12 +43,25 @@ export const createUserProfile = mutation({
         });
 
         // step 3: find the role's _id from the roles table
-        const role = await ctx.db
+        let role = await ctx.db
             .query("roles")
             .withIndex("name", (q) => q.eq("name", args.role))
             .first();
         if (!role) {
-            throw new Error(`Role not found: ${args.role}`);
+            // Create the role if it doesn't exist
+            await ctx.db.insert("roles", {
+                name: args.role,
+                description: `Role for ${args.role}`,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            });
+            role = await ctx.db
+                .query("roles")
+                .withIndex("name", (q) => q.eq("name", args.role))
+                .first();
+        }
+        if (!role) {
+            throw new Error(`Failed to create or find role: ${args.role}`);
         }
         // step 4: write to user_roles table
         await ctx.db.insert("user_roles", {
