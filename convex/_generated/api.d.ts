@@ -10,6 +10,7 @@
 
 import type * as auth from "../auth.js";
 import type * as courses_mutations from "../courses/mutations.js";
+import type * as courses_queries from "../courses/queries.js";
 import type * as http from "../http.js";
 import type * as teachers_queries from "../teachers/queries.js";
 import type * as users from "../users.js";
@@ -25,6 +26,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   "courses/mutations": typeof courses_mutations;
+  "courses/queries": typeof courses_queries;
   http: typeof http;
   "teachers/queries": typeof teachers_queries;
   users: typeof users;
