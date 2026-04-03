@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useAuthActions } from "@convex-dev/auth/react";
+import { useMutation } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
 import {
   Card,
@@ -14,11 +16,14 @@ import { Button } from "@/components/ui/button";
 
 export default function SignIn() {
   const { signIn } = useAuthActions();
+  const createUserProfile = useMutation(api.users.mutations.createUserProfile);
   const router = useRouter();
   
   const [step, setStep] = useState<"signIn" | "signUp">("signIn");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fName, setFName] = useState("");
+  const [lName, setLName] = useState("");
   const [role, setRole] = useState<"student" | "teacher">("student");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -34,10 +39,12 @@ export default function SignIn() {
           email, 
           password, 
           flow: "signUp", 
-          role, 
-          fName: "New", 
-          lName: "User" 
+          fName, 
+          lName 
         });
+        
+        // After signUp, create the user profile with role
+        await createUserProfile({ fName, lName, role });
         
         if (role === "teacher") router.push("/teacher/dashboard");
         if (role === "student") router.push("/student/dashboard");
@@ -51,6 +58,7 @@ export default function SignIn() {
         router.push("/"); 
       }
     } catch (err) {
+      console.error("Auth error:", err);
       setError("Failed to authenticate. Check your credentials.");
     } finally {
       setLoading(false);
@@ -92,14 +100,34 @@ export default function SignIn() {
             />
 
             {step === "signUp" && (
-              <select 
-                value={role} 
-                onChange={(e) => setRole(e.target.value as "student" | "teacher")}
-                className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
-              >
-                <option value="student">I am a Student</option>
-                <option value="teacher">I am a Teacher</option>
-              </select>
+              <>
+                <input 
+                  type="text" 
+                  placeholder="First Name" 
+                  value={fName} 
+                  onChange={(e) => setFName(e.target.value)} 
+                  className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400" 
+                  required 
+                />
+                
+                <input 
+                  type="text" 
+                  placeholder="Last Name" 
+                  value={lName} 
+                  onChange={(e) => setLName(e.target.value)} 
+                  className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400" 
+                  required 
+                />
+
+                <select 
+                  value={role} 
+                  onChange={(e) => setRole(e.target.value as "student" | "teacher")}
+                  className="flex h-10 w-full rounded-md border border-slate-300 bg-transparent px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400" 
+                >
+                  <option value="student">I am a Student</option>
+                  <option value="teacher">I am a Teacher</option>
+                </select>
+              </>
             )}
 
             <Button type="submit" className="w-full mt-2" disabled={loading}>
