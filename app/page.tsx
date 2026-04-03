@@ -3,19 +3,46 @@
 import { useQuery } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 export default function Home() {
   const user = useQuery(api.users.getCurrentUser);
   const router = useRouter();
+  const [timeoutReached, setTimeoutReached] = useState(false);
 
   useEffect(() => {
-    if (user === undefined) return; // still loading
-    if (user === null) return;      // proxy handles unauthed users
+    const timer = setTimeout(() => {
+      setTimeoutReached(true);
+    }, 5000); // 5 seconds timeout
 
-    if (user.role === "teacher") router.replace("/teacher/dashboard");
-    if (user.role === "student") router.replace("/student/dashboard");
-  }, [user, router]);
+    return () => clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (user === undefined) {
+      if (timeoutReached) {
+        router.replace("/signin");
+      }
+
+      return;
+    }
+    if (user === null) {
+      router.replace("/signin");
+      return;
+    }
+
+
+    const selectedRole = (user.role as string | null) ??
+      (user.roles?.[0]?.name as string | undefined);
+
+    if (selectedRole === "teacher") {
+      router.replace("/teacher/dashboard");
+    } else if (selectedRole === "student") {
+      router.replace("/student/dashboard");
+    } else {
+      router.replace("/student/dashboard");
+    }
+  }, [user, router, timeoutReached]);
 
   return (
     <div className="flex h-screen items-center justify-center text-slate-400">
