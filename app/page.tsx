@@ -21,13 +21,13 @@ export default function Home() {
   useEffect(() => {
     if (user === undefined) {
       if (timeoutReached) {
-        router.replace("/signin");
+        router.replace("/login");
       }
 
       return;
     }
     if (user === null) {
-      router.replace("/signin");
+      router.replace("/login");
       return;
     }
 

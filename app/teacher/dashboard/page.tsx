@@ -12,7 +12,7 @@ export default function TeacherDashboard() {
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">Teacher Dashboard</h1>
         <button
-          onClick={() => void signOut().then(() => router.push("/signin"))}
+          onClick={() => void signOut().then(() => router.push("/login"))}
           className="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded-lg text-sm"
         >
           Sign Out

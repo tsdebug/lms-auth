@@ -163,8 +163,8 @@ export function SignupForm({
 
       <p className="text-sm text-center text-muted-foreground">
         Already have an account?{" "}
-        {/* CHANGED: link to signin page instead of # */}
-        <a href="/signin" className="underline underline-offset-4">
+        {/* CHANGED: /signin → /login */}
+        <a href="/login" className="underline underline-offset-4">
           Sign in
         </a>
       </p>
