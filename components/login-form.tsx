@@ -24,8 +24,24 @@ export function LoginForm({
   const [password, setPassword] = useState("") // added
   const [error, setError] = useState("") // added
   const [loading, setLoading] = useState(false) // added
+
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError("")
+    setLoading(true)
+    try {
+      await signIn("password", { email, password, flow: "signIn" })
+      router.push("/")
+    } catch (err) {
+      setError("Invalid email or password.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
-    <form className={cn("flex flex-col gap-6", className)} {...props}>
+    <form className={cn("flex flex-col gap-6", className)} onSubmit={handleSubmit} {...props}>
       <FieldGroup>
         <div className="flex flex-col items-center gap-1 text-center">
           <h1 className="text-2xl font-bold">Login to your account</h1>
@@ -41,6 +57,7 @@ export function LoginForm({
             placeholder="m@example.com"
             required
             className="bg-background"
+            onChange={(e) => setEmail(e.target.value)}
           />
         </Field>
         <Field>
@@ -58,10 +75,13 @@ export function LoginForm({
             type="password"
             required
             className="bg-background"
+            onChange={(e) => setPassword(e.target.value)}
           />
         </Field>
         <Field>
-          <Button type="submit">Login</Button>
+          <Button type="submit" disabled={loading}> {/* ADDED: disabled */}
+            {loading ? "Logging in..." : "Login"} {/* ADDED: loading state */}
+          </Button>
         </Field>
         <FieldSeparator>Or continue with</FieldSeparator>
         <Field>
@@ -76,7 +96,7 @@ export function LoginForm({
           </Button>
           <FieldDescription className="text-center">
             Don&apos;t have an account?{" "}
-            <a href="#" className="underline underline-offset-4">
+            <a href="/signup" className="underline underline-offset-4">
               Sign up
             </a>
           </FieldDescription>
