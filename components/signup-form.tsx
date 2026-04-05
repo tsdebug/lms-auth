@@ -160,7 +160,7 @@ export function SignupForm({
           <FieldDescription className="px-6 text-center">
             Already have an account?{" "}
             <a href="/login" className="underline underline-offset-4"> {/* Changed: href to /login */}
-              Sign in
+              Log in
             </a>
           </FieldDescription>
         </Field>
