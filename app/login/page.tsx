@@ -1,8 +1,9 @@
-// CHANGED: replaced old custom signin form with shadcn login-02 block
+"use client"
+
 import { LoginForm } from "@/components/login-form"
 import { GalleryVerticalEndIcon } from "lucide-react"
 
-export default function LogInPage() {
+export default function LoginPage() {
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">
@@ -11,7 +12,7 @@ export default function LogInPage() {
             <div className="flex size-6 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <GalleryVerticalEndIcon className="size-4" />
             </div>
-            LMS Inc.
+            LMS 
           </a>
         </div>
         <div className="flex flex-1 items-center justify-center">
