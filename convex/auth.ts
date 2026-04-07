@@ -29,6 +29,8 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
 
       const userId = await ctx.db.insert("users", {
         ...rest,
+        fName: (rest.fName as string) ?? "",
+        lName: (rest.lName as string) ?? "",
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
