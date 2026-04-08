@@ -1,11 +1,21 @@
-// convex/auth.ts
 import { convexAuth } from "@convex-dev/auth/server";
 import { Password } from "@convex-dev/auth/providers/Password";
 import GitHub from "@auth/core/providers/github";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
-    GitHub,
+    GitHub({
+      profile(githubProfile) {
+        return {
+          email: githubProfile.email,
+          name: githubProfile.name || githubProfile.login,
+          image: githubProfile.avatar_url,
+          role: "student", // Default for GitHub
+          fName: githubProfile.name?.split(" ")[0] || githubProfile.login || "GitHub",
+          lName: githubProfile.name?.split(" ").slice(1).join(" ") || "User",
+        };
+      },
+    }),
     Password({
       profile(params) {
         return {
@@ -19,51 +29,49 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   ],
   callbacks: {
     async createOrUpdateUser(ctx, args) {
-      // 1. If user already exists (logging in again), just return their ID
+      // 1. If user already exists, just log them in
       if (args.existingUserId) {
         return args.existingUserId;
       }
 
-      // 2. Extract role and other fields from the profile
-      const { role, ...rest } = args.profile as {
-        role?: string;
-        [key: string]: any;
-      };
+      // 2. Safely extract profile data
+      const profile = args.profile;
 
-      // 3. Insert the new user into the database
+      // 3. Bulletproof Database Insert
+      // We ONLY insert fields that we know exist in the schema to prevent crashes.
       const userId = await ctx.db.insert("users", {
-        ...rest,
-        fName: (rest.fName as string) ?? "",
-        lName: (rest.lName as string) ?? "",
+        email: profile.email as string | undefined,
+        name: profile.name as string | undefined,
+        image: profile.image as string | undefined,
+        fName: (profile.fName as string) || "New",
+        lName: (profile.lName as string) || "User",
         createdAt: Date.now(),
         updatedAt: Date.now(),
       });
 
-      // 4. Determine the role (default to "student" for GitHub)
-      const roleName = role ?? "student";
+      // 4. Handle the Multiple Roles logic (Bridge Table)
+      const roleName = (profile.role as string) || "student";
       
-      // 5. Try to find the role using the fast index
       let roleDoc = await ctx.db
         .query("roles")
         .filter((q) => q.eq(q.field("name"), roleName))
         .first();
 
-      // fix - If the role does not exist yet in the DB, create it before linking to the user
+      // 5. Create role if it doesn't exist yet
       if (!roleDoc) {
         const newRoleId = await ctx.db.insert("roles", {
           name: roleName,
-          description: `Default role for ${roleName}`,
+          description: `Role for ${roleName}`,
           createdAt: Date.now(),
           updatedAt: Date.now(),
         });
-        // Fetch the newly created role document
         roleDoc = await ctx.db.get(newRoleId);
       }
 
-      // 6. Link the user to the role in the bridge table safely
+      // 6. Connect user to role via bridge table
       if (roleDoc) {
         await ctx.db.insert("user_roles", {
-          userId,
+          userId: userId,
           roleId: roleDoc._id,
           createdAt: Date.now(),
           updatedAt: Date.now(),
@@ -74,4 +82,3 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
     },
   },
 });
-    
