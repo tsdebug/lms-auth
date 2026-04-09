@@ -49,6 +49,11 @@ export function LoginForm({
             Enter your email below to login to your account
           </p>
         </div>
+        {error && (
+          <div className="bg-red-50 text-red-500 p-3 rounded-md text-sm font-medium border border-red-200 text-center">
+            {error}
+          </div>
+        )}
         <Field>
           <FieldLabel htmlFor="email">Email</FieldLabel>
           <Input
