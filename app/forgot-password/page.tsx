@@ -1,6 +1,7 @@
 "use client"
 
 import { useAuthActions } from "@convex-dev/auth/react"
+import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -11,6 +12,7 @@ export default function ForgotPasswordPage() {
   const [step, setStep] = useState<"forgot" | { email: string }>("forgot")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
+  const router = useRouter()
 
   if (step === "forgot") {
     return (
@@ -62,27 +64,20 @@ export default function ForgotPasswordPage() {
   return (
     <div className="flex h-screen items-center justify-center">
       <form
-        className="flex flex-col gap-4 w-full max-w-sm"
+        className="flex flex-col gap-4 w-full max-w-sm border p-6 rounded-lg shadow-sm"
         onSubmit={async (e) => {
           e.preventDefault()
           setError("")
           setLoading(true)
-          // CHANGED: same reason — explicit object instead of FormData,
-          // also email comes from state (step.email) not a hidden input
-          const code = (e.currentTarget.elements.namedItem("code") as HTMLInputElement).value
-          const newPassword = (e.currentTarget.elements.namedItem("newPassword") as HTMLInputElement).value
+          const formData = new FormData(e.currentTarget)
           try {
-            await signIn("password", {
-              email: step.email,
-              code,
-              newPassword,
-              flow: "reset-verification",
-            })
-            // on success Convex Auth sets the session cookie and
-            // the middleware redirects the user to "/" → their dashboard
-          } catch (err) {
-            console.error("Password reset verification error:", err)
-            setError(err instanceof Error ? err.message : "Invalid or expired code. Try again.")
+            await signIn("password", formData)
+            // Redirect to home upon success
+            // WHY: Convex Auth automatically logs you in when you successfully reset a password.
+            router.push("/")
+
+          } catch {
+            setError("Invalid or expired code. Please try again.")
           } finally {
             setLoading(false)
           }
