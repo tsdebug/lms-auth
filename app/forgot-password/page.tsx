@@ -12,7 +12,6 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
 
-  // Step 1: user enters email → triggers OTP send
   if (step === "forgot") {
     return (
       <div className="flex h-screen items-center justify-center">
@@ -22,12 +21,18 @@ export default function ForgotPasswordPage() {
             e.preventDefault()
             setError("")
             setLoading(true)
-            const formData = new FormData(e.currentTarget)
+            // CHANGED: using explicit object instead of FormData because
+            // FormData can silently miss hidden inputs in some React/Next versions,
+            // causing the flow field to not be sent — which was the bug
+            const email = (e.currentTarget.elements.namedItem("email") as HTMLInputElement).value
             try {
-              await signIn("password", formData) // flow="reset" is in the hidden input
-              setStep({ email: formData.get("email") as string })
-            } catch {
-              setError("No account found with that email.")
+              await signIn("password", { email, flow: "reset" })
+              setStep({ email })
+            } catch (err) {
+              // CHANGED: logging real error to console so we can debug,
+              // and showing actual message instead of hardcoded string
+              console.error("Password reset request error:", err)
+              setError(err instanceof Error ? err.message : "Something went wrong. Try again.")
             } finally {
               setLoading(false)
             }
@@ -40,10 +45,9 @@ export default function ForgotPasswordPage() {
           {error && <p className="text-sm text-red-500">{error}</p>}
           <Field>
             <FieldLabel>Email</FieldLabel>
+            {/* No hidden inputs needed anymore — flow is passed directly in the object above */}
             <Input name="email" type="email" placeholder="m@example.com" required />
           </Field>
-          {/* This hidden input tells Convex Auth which flow to run */}
-          <input name="flow" type="hidden" value="reset" />
           <Button type="submit" disabled={loading}>
             {loading ? "Sending..." : "Send reset code"}
           </Button>
@@ -55,7 +59,6 @@ export default function ForgotPasswordPage() {
     )
   }
 
-  // Step 2: user enters OTP code + new password
   return (
     <div className="flex h-screen items-center justify-center">
       <form
@@ -64,13 +67,22 @@ export default function ForgotPasswordPage() {
           e.preventDefault()
           setError("")
           setLoading(true)
-          const formData = new FormData(e.currentTarget)
+          // CHANGED: same reason — explicit object instead of FormData,
+          // also email comes from state (step.email) not a hidden input
+          const code = (e.currentTarget.elements.namedItem("code") as HTMLInputElement).value
+          const newPassword = (e.currentTarget.elements.namedItem("newPassword") as HTMLInputElement).value
           try {
-            await signIn("password", formData) // flow="reset-verification"
-            // on success, Convex Auth signs the user in and the middleware
-            // will redirect them to "/" which goes to their dashboard
-          } catch {
-            setError("Invalid or expired code. Please try again.")
+            await signIn("password", {
+              email: step.email,
+              code,
+              newPassword,
+              flow: "reset-verification",
+            })
+            // on success Convex Auth sets the session cookie and
+            // the middleware redirects the user to "/" → their dashboard
+          } catch (err) {
+            console.error("Password reset verification error:", err)
+            setError(err instanceof Error ? err.message : "Invalid or expired code. Try again.")
           } finally {
             setLoading(false)
           }
@@ -89,9 +101,6 @@ export default function ForgotPasswordPage() {
           <FieldLabel>New password</FieldLabel>
           <Input name="newPassword" type="password" required />
         </Field>
-        {/* These hidden inputs carry data Convex Auth needs */}
-        <input name="email" type="hidden" value={step.email} />
-        <input name="flow" type="hidden" value="reset-verification" />
         <Button type="submit" disabled={loading}>
           {loading ? "Resetting..." : "Reset password"}
         </Button>
