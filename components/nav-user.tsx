@@ -1,5 +1,6 @@
 "use client"
 
+import { useAuthActions } from "@convex-dev/auth/react"
 import {
   Avatar,
   AvatarFallback,
@@ -20,7 +21,13 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { EllipsisVerticalIcon, CircleUserRoundIcon, CreditCardIcon, BellIcon, LogOutIcon } from "lucide-react"
+import {
+  EllipsisVerticalIcon,
+  CircleUserRoundIcon,
+  CreditCardIcon,
+  BellIcon,
+  LogOutIcon,
+} from "lucide-react"
 
 export function NavUser({
   user,
@@ -32,6 +39,7 @@ export function NavUser({
   }
 }) {
   const { isMobile } = useSidebar()
+  const { signOut } = useAuthActions() // ← pulls signOut from Convex Auth
 
   return (
     <SidebarMenu>
@@ -78,25 +86,22 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuGroup>
               <DropdownMenuItem>
-                <CircleUserRoundIcon
-                />
+                <CircleUserRoundIcon />
                 Account
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <CreditCardIcon
-                />
+                <CreditCardIcon />
                 Billing
               </DropdownMenuItem>
               <DropdownMenuItem>
-                <BellIcon
-                />
+                <BellIcon />
                 Notifications
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOutIcon
-              />
+            {/* onClick calls signOut — redirects to login automatically */}
+            <DropdownMenuItem onClick={() => signOut()}>
+              <LogOutIcon />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
