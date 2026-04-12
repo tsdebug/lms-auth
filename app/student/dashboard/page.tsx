@@ -17,7 +17,7 @@ export default function StudentDashboardPage() {
         } as React.CSSProperties
       }
     >
-      <AppSidebar variant="inset" role="student" />
+      <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">
