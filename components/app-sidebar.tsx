@@ -1,5 +1,8 @@
 "use client"
 
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
+
 import * as React from "react"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -38,21 +41,28 @@ const studentNav = [
   { title: "Certificates", url: "/student/certificates", icon: <Award /> },
 ]
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
-  role?: "teacher" | "student"
-  user?: {
-    name: string
-    email: string
-    avatar: string
-  }
-}
+interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> { }
 
-export function AppSidebar({
-  role = "student",
-  user = { name: "User", email: "user@example.com", avatar: "" },
-  ...props
-}: AppSidebarProps) {
-  const navItems = role === "teacher" ? teacherNav : studentNav
+export function AppSidebar({ ...props }: AppSidebarProps) {
+  const currentUser = useQuery(api.users.queries.getCurrentUser)
+  const isTeacher = currentUser?.roles?.some(r => r?.name === "teacher")
+  const navItems = isTeacher ? teacherNav : studentNav
+
+  // the real user object to pass to NavUser
+  const userForNav = {
+    name: currentUser ? `${currentUser.fName ?? ""} ${currentUser.lName ?? ""}`.trim() : "Loading...",
+    email: currentUser?.email ?? "",
+    avatar: currentUser?.pfpUrl ?? "",
+  }
+
+  // to handle the loading state of the current user, we can check if it's undefined (still loading) or null (not logged in)
+  if (currentUser === undefined) {
+    return null // or a skeleton/spinner
+  }
+
+  if (currentUser === null) {
+    return null // sidebar won't show if not logged in anyway
+  }
 
   return (
     <Sidebar collapsible="offcanvas" {...props}>
@@ -75,7 +85,7 @@ export function AppSidebar({
         <NavMain items={navItems} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user} />
+        <NavUser user={userForNav} />
       </SidebarFooter>
     </Sidebar>
   )
