@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function Home() {
-  const user = useQuery(api.users.getCurrentUser);
+  const user = useQuery(api.users.queries.getCurrentUser);
   const router = useRouter();
   const [timeoutReached, setTimeoutReached] = useState(false);
 
@@ -31,9 +31,7 @@ export default function Home() {
       return;
     }
 
-
-    const selectedRole = (user.role as string | null) ??
-      (user.roles?.[0]?.name as string | undefined);
+    const selectedRole = user.roles?.[0]?.name as string | undefined;
 
     if (selectedRole === "teacher") {
       router.replace("/teacher/dashboard");
