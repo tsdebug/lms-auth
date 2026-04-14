@@ -73,22 +73,49 @@ export const getCourses = query({
 export const getCoursesByTeacher = query({
   args: {},
   handler: async (ctx) => {
-    // Step 1 - auth check
+    // 1. auth check 
     const authUserId = await getAuthUserId(ctx);
-
     if (!authUserId) {
       throw new Error("Unauthorized");
     }
 
-    // Step 2 - get all courses for this teacher
-    const results = await ctx.db
+    // 2. get all courses owned by this teacher
+    const courses = await ctx.db
       .query("courses")
       .withIndex("userId", (q) => q.eq("userId", authUserId))
       .collect();
 
-    return results;
-  }
-})
+    // 3. for each course, enrich it with role + student count
+    // Promise.all because each enrichment is async — same pattern as getCourseDetails
+    const enrichedCourses = await Promise.all(
+      courses.map(async (course) => {
+        
+        // 3a. find this teacher's row in course_instructors for this course
+        const instructorRow = await ctx.db
+          .query("course_instructors")
+          .withIndex("courseId_userId", (q) =>
+            q.eq("courseId", course._id).eq("userId", authUserId)
+          )
+          .first();
+
+        // 3b. count enrollments for this course
+        const enrollments = await ctx.db
+          .query("enrollments")
+          .withIndex("courseId", (q) => q.eq("courseId", course._id))
+          .collect();
+
+        // 3c. combine everything into one object
+        return {
+          ...course,                              // all original course fields
+          myRole: instructorRow?.role ?? "owner", // their role on this course
+          studentCount: enrollments.length,       // how many students enrolled
+        };
+      })
+    );
+
+    return enrichedCourses;
+  },
+});
 
 // getCourseDetails - Public query for course details page, which includes only published courses
 export const getCourseDetails = query({
