@@ -100,7 +100,7 @@ export function NavUser({
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
             {/* onClick calls signOut — redirects to login automatically */}
-            <DropdownMenuItem onClick={() => signOut()}>
+            <DropdownMenuItem variant="destructive" onClick={() => signOut()}>
               <LogOutIcon />
               Log out
             </DropdownMenuItem>
