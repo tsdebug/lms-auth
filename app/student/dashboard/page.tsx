@@ -6,6 +6,7 @@ import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import data from "./data.json"
+import { studentColumns } from "./columns"
 
 export default function StudentDashboardPage() {
   return (
@@ -27,7 +28,7 @@ export default function StudentDashboardPage() {
               <div className="px-4 lg:px-6">
                 <ChartAreaInteractive />
               </div>
-              <DataTable data={data} />
+              <DataTable data={data} columns={studentColumns} />
             </div>
           </div>
         </div>
