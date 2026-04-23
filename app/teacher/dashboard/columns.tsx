@@ -2,11 +2,9 @@
 
 import { ColumnDef } from "@tanstack/react-table"
 import { EllipsisVerticalIcon } from "lucide-react"
-import { UniqueIdentifier } from "@dnd-kit/core"
 
-// shape of one row in the teacher courses table
 export type TeacherCourseRow = {
-  id: UniqueIdentifier
+  id: number
   title: string
   status: "draft" | "published" | "archived"
   myRole: string
@@ -18,22 +16,20 @@ export const teacherColumns: ColumnDef<TeacherCourseRow>[] = [
   {
     accessorKey: "title",
     header: "Course Title",
-    cell: ({ row }) => (
-      <span className="font-medium">{row.original.title}</span>
-    ),
+    cell: ({ row }) => <span className="font-medium">{row.original.title}</span>,
   },
   {
     accessorKey: "status",
     header: "Status",
     cell: ({ row }) => {
       const status = row.original.status
-      // different badge color per status
       const badgeClass =
         status === "published"
           ? "bg-primary text-primary-foreground"
           : status === "draft"
           ? "bg-secondary text-secondary-foreground"
           : "border border-border text-foreground"
+
       return (
         <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ${badgeClass}`}>
           {status}
@@ -53,17 +49,13 @@ export const teacherColumns: ColumnDef<TeacherCourseRow>[] = [
   {
     accessorKey: "studentCount",
     header: "Students",
-    cell: ({ row }) => (
-      <span>{row.original.studentCount}</span>
-    ),
+    cell: ({ row }) => <span>{row.original.studentCount}</span>,
   },
   {
     accessorKey: "difficultyLevel",
     header: "Difficulty",
     cell: ({ row }) => (
-      <span className="capitalize">
-        {row.original.difficultyLevel ?? "—"}
-      </span>
+      <span className="capitalize">{row.original.difficultyLevel ?? "—"}</span>
     ),
   },
   {
@@ -77,9 +69,15 @@ export const teacherColumns: ColumnDef<TeacherCourseRow>[] = [
         >
           <EllipsisVerticalIcon className="size-4" />
         </button>
-        <button type="button" className="rounded-md border px-2 py-1 text-xs hover:bg-accent">Edit</button>
-        <button type="button" className="rounded-md border px-2 py-1 text-xs hover:bg-accent">Publish</button>
-        <button type="button" className="rounded-md border border-destructive px-2 py-1 text-xs text-destructive hover:bg-destructive/10">Archive</button>
+        <button type="button" className="rounded-md border px-2 py-1 text-xs hover:bg-accent">
+          Edit
+        </button>
+        <button type="button" className="rounded-md border px-2 py-1 text-xs hover:bg-accent">
+          Publish
+        </button>
+        <button type="button" className="rounded-md border border-destructive px-2 py-1 text-xs text-destructive hover:bg-destructive/10">
+          Archive
+        </button>
       </div>
     ),
   },

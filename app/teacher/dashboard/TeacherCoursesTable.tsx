@@ -1,9 +1,9 @@
 "use client"
 
 import { useQuery } from "convex/react"
-import { api } from "../_generated/api"
-import { DataTable } from "../../components/data-table"
-import { teacherColumns, type TeacherCourseRow } from "./TeacherColumns"
+import { api } from "@/convex/_generated/api"
+import { DataTable } from "@/components/data-table"
+import { teacherColumns, type TeacherCourseRow } from "./columns"
 
 export function TeacherCoursesTable() {
   const courses = useQuery(api.courses.queries.getCoursesByTeacher)
@@ -24,7 +24,6 @@ export function TeacherCoursesTable() {
     )
   }
 
-  // transform Convex data into the shape our table expects
   const tableData: TeacherCourseRow[] = courses.map((course, index) => ({
     id: index + 1,
     title: course.title,
