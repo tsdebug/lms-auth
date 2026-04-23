@@ -1,50 +1,36 @@
-"use client";
+import * as React from "react"
+import { AppSidebar } from "@/components/app-sidebar"
+import { ChartAreaInteractive } from "@/components/chart-area-interactive"
+import { SectionCards } from "@/components/section-cards"
+import { SiteHeader } from "@/components/site-header"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { TeacherCoursesTable } from "@/convex/courses/TeacherCoursesTable"
 
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-
-export default function Home() {
-  const user = useQuery(api.users.queries.getCurrentUser);
-  const router = useRouter();
-  const [timeoutReached, setTimeoutReached] = useState(false);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setTimeoutReached(true);
-    }, 5000); // 5 seconds timeout
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  useEffect(() => {
-    if (user === undefined) {
-      if (timeoutReached) {
-        router.replace("/login");
-      }
-
-      return;
-    }
-    if (user === null) {
-      router.replace("/login");
-      return;
-    }
-
-    const selectedRole = user.roles?.[0]?.name as string | undefined;
-
-    if (selectedRole === "teacher") {
-      router.replace("/teacher/dashboard");
-    } else if (selectedRole === "student") {
-      router.replace("/student/dashboard");
-    } else {
-      router.replace("/student/dashboard");
-    }
-  }, [user, router, timeoutReached]);
-
+export default function TeacherDashboardPage() {
   return (
-    <div className="flex h-screen items-center justify-center text-slate-400">
-      Loading...
-    </div>
-  );
+    <SidebarProvider
+      style={
+        {
+          "--sidebar-width": "calc(var(--spacing) * 72)",
+          "--header-height": "calc(var(--spacing) * 12)",
+        } as React.CSSProperties
+      }
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col">
+          <div className="@container/main flex flex-1 flex-col gap-2">
+            <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
+              <SectionCards role="teacher" />
+              <div className="px-4 lg:px-6">
+                <ChartAreaInteractive />
+              </div>
+              <TeacherCoursesTable />
+            </div>
+          </div>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
+  )
 }

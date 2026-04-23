@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
+import { requireRole, requireCourseRole } from "../lib/authorization"
+
 
 // args.something — data that came in from outside, from the frontend calling this function.
 // variable._id — data you fetched from the database inside the function itself.
@@ -26,23 +28,7 @@ export const createCourse = mutation({
         }
 
         // 2. role check — only teachers can create courses (new concept!)
-        // now check if THIS user has that role
-        const teacherRole = await ctx.db
-            .query("roles")
-            .withIndex("name", (q) => q.eq("name", "teacher"))
-            .first();
-        if (!teacherRole) {
-            throw new Error("Teacher role not found");
-        }
-        const isTeacher = await ctx.db
-            .query("user_roles")
-            .withIndex("userId_roleId", (q) =>
-                q.eq("userId", authUserId).eq("roleId", teacherRole._id)
-            )
-            .first();
-        if (!isTeacher) {
-            throw new Error("Unauthorized: only teachers can create courses");
-        }
+        await requireRole(ctx.db, authUserId, "teacher"); // if the user doesn't have the teacher role, this will throw an error and stop the execution of the handler here. If they do have the teacher role, it will just continue to the next line.
 
         // 3. slug uniqueness check
         if (args.slug) {
@@ -106,13 +92,7 @@ export const updateCourse = mutation({
         }
 
         // 3. role check 
-        const isInstructor = await ctx.db
-            .query("course_instructors") // if a row exists here for a user & course, that means they are an instructor on that course
-            .withIndex("courseId_userId", (q) => q.eq("courseId", args.courseId).eq("userId", authUserId))
-            .first();
-        if (!isInstructor) {
-            throw new Error("Unauthorized: only instructors can update courses");
-        }
+        await requireCourseRole(ctx.db, authUserId, args.courseId)
 
         // 4. slug uniqueness check - if the instructor is trying to update the slug, we need to make sure the new slug is not already in use by another course
         if (args.slug) {
@@ -142,28 +122,21 @@ export const publishCourse = mutation({
     handler: async (ctx, args) => {
         // 1. auth check
         const authUserId = await getAuthUserId(ctx);
-        if(!authUserId){
+        if (!authUserId) {
             throw new Error("User must be authenticated");
         }
 
         // 2. does the course even exist?
         const existingCourse = await ctx.db.get(args.courseId);
-        if(!existingCourse){
+        if (!existingCourse) {
             throw new Error("Course not found");
         }
 
         // 3. role check - only instructors can publish courses
-        const isInstructor = await ctx.db
-            .query("course_instructors")
-            .withIndex("courseId_userId", (q)=> q.eq("courseId", args.courseId).eq("userId", authUserId))
-            .first();
-
-        if(!isInstructor){
-            throw new Error("Unauthorized: only instructors can publish courses");
-        }
+        await requireCourseRole(ctx.db, authUserId, args.courseId)
 
         // 4. current status check - only draft courses can be published
-        if(existingCourse.status !== "draft"){
+        if (existingCourse.status !== "draft") {
             throw new Error("Only draft courses can be published");
         }
 
@@ -172,33 +145,33 @@ export const publishCourse = mutation({
         // * For each chapter — check if it has at least one lesson 
         // * If any chapter has zero lessons — throw an error
         const chapters = await ctx.db
-        .query("chapters")
-        .withIndex("courseId", (q)=> q.eq("courseId", args.courseId))
-        .collect(); // cuz we need to collect all the matches to check them in the next step
+            .query("chapters")
+            .withIndex("courseId", (q) => q.eq("courseId", args.courseId))
+            .collect(); // cuz we need to collect all the matches to check them in the next step
 
         // no chapters
-        if(chapters.length ===0){
+        if (chapters.length === 0) {
             throw new Error("Course must have at least one chapter to be published");
         }
 
         // is there at least one lesson in each chapter?
-        for(const chapter of chapters){
+        for (const chapter of chapters) {
             const lesson = await ctx.db
-            .query("lessons")
-            .withIndex("chapterId", (q)=> q.eq("chapterId", chapter._id))
-            .first();
+                .query("lessons")
+                .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+                .first();
 
-            if(!lesson){
+            if (!lesson) {
                 throw new Error("Each chapter must have at least one lesson to be published");
             }
         }
 
         // 6. update the course status to "published" in the courses table
         await ctx.db.patch(args.courseId, {
-            status:"published",
+            status: "published",
             updatedAt: Date.now(),
         })
-     }
+    }
 })
 
 // archiveCourse - called when a teacher wants to archive their course, to change the course status from "published" to "archived" in the courses table
@@ -210,34 +183,28 @@ export const archiveCourse = mutation({
 
         // 1. auth check
         const authUserId = await getAuthUserId(ctx);
-        if(!authUserId){
+        if (!authUserId) {
             throw new Error("User must be authenticated");
         }
 
         // 2. does the course even exist?
         const existingCourse = await ctx.db.get(args.courseId);
-        if(!existingCourse){
+        if (!existingCourse) {
             throw new Error("Course not found");
         }
 
         // 3. role check - only instructors can archive courses
-        const isInstructor = await ctx.db
-        .query("course_instructors")
-        .withIndex("courseId_userId", (q)=> q.eq("courseId", args.courseId).eq("userId", authUserId))
-        .first();
-        if(!isInstructor){
-            throw new Error("Unauthorized: only instructors can archive courses");
-        }
+        await requireCourseRole(ctx.db, authUserId, args.courseId)
 
         // 4. current status check - only published courses can be archived
-        if(existingCourse.status !== "published"){
+        if (existingCourse.status !== "published") {
             throw new Error("Only published courses can be archived");
         }
 
         // 5. update the course status to "archived" in the courses table
         await ctx.db.patch(args.courseId, {
-            status:"archived",
+            status: "archived",
             updatedAt: Date.now(),
-         })
+        })
     }
 })
