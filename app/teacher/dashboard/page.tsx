@@ -1,11 +1,10 @@
 import * as React from "react"
 import { AppSidebar } from "@/components/app-sidebar"
 import { ChartAreaInteractive } from "@/components/chart-area-interactive"
-import { DataTable } from "@/components/data-table"
 import { SectionCards } from "@/components/section-cards"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import data from "./data.json"
+import { TeacherCoursesTable } from "./TeacherCoursesTable"
 
 export default function TeacherDashboardPage() {
   return (
@@ -27,7 +26,7 @@ export default function TeacherDashboardPage() {
               <div className="px-4 lg:px-6">
                 <ChartAreaInteractive />
               </div>
-              <DataTable data={data} columns={[]} />
+              <TeacherCoursesTable />
             </div>
           </div>
         </div>
