@@ -3,58 +3,51 @@
 import { ColumnDef } from "@tanstack/react-table"
 
 export type StudentCourseRow = {
-  id: number
-  header: string
-  type: string
-  status: string
-  target: string
-  limit: string
-  reviewer: string
+  id: string
+  courseTitle: string
+  enrollmentStatus: "active" | "completed" | "dropped"
+  instructorName: string
+  difficultyLevel: string | undefined
 }
 
 export const studentColumns: ColumnDef<StudentCourseRow>[] = [
   {
-    accessorKey: "header",
+    accessorKey: "courseTitle",
     header: "Course",
-    cell: ({ row }) => <span className="font-medium">{row.original.header}</span>,
+    cell: ({ row }) => (
+      <span className="font-medium">{row.original.courseTitle}</span>
+    ),
   },
   {
-    accessorKey: "type",
-    header: "Type",
-    cell: ({ row }) => <span>{row.original.type}</span>,
-  },
-  {
-    accessorKey: "status",
+    accessorKey: "enrollmentStatus",
     header: "Status",
     cell: ({ row }) => {
-      const status = row.original.status
-      const statusClass =
-        status === "Done"
+      const status = row.original.enrollmentStatus
+      const badgeClass =
+        status === "completed"
           ? "bg-primary text-primary-foreground"
-          : status === "In Progress"
+          : status === "active"
           ? "bg-secondary text-secondary-foreground"
           : "border border-border text-foreground"
-
       return (
-        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium ${statusClass}`}>
+        <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ${badgeClass}`}>
           {status}
         </span>
       )
     },
   },
   {
-    accessorKey: "target",
-    header: "Target",
-    cell: ({ row }) => <span>{row.original.target}</span>,
+    accessorKey: "instructorName",
+    header: "Instructor",
+    cell: ({ row }) => <span>{row.original.instructorName}</span>,
   },
   {
-    accessorKey: "limit",
-    header: "Limit",
-    cell: ({ row }) => <span>{row.original.limit}</span>,
-  },
-  {
-    accessorKey: "reviewer",
-    header: "Reviewer",
-    cell: ({ row }) => <span>{row.original.reviewer}</span>,
+    accessorKey: "difficultyLevel",
+    header: "Difficulty",
+    cell: ({ row }) => (
+      <span className="capitalize">
+        {row.original.difficultyLevel ?? "—"}
+      </span>
+    ),
   },
 ]

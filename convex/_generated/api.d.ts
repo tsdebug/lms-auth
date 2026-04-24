@@ -12,6 +12,7 @@ import type * as ResendOTPPasswordReset from "../ResendOTPPasswordReset.js";
 import type * as auth from "../auth.js";
 import type * as courses_mutations from "../courses/mutations.js";
 import type * as courses_queries from "../courses/queries.js";
+import type * as enrollments_queries from "../enrollments/queries.js";
 import type * as http from "../http.js";
 import type * as lib_authorization from "../lib/authorization.js";
 import type * as seed from "../seed.js";
@@ -30,6 +31,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   "courses/mutations": typeof courses_mutations;
   "courses/queries": typeof courses_queries;
+  "enrollments/queries": typeof enrollments_queries;
   http: typeof http;
   "lib/authorization": typeof lib_authorization;
   seed: typeof seed;

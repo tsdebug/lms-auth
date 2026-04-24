@@ -30,7 +30,6 @@ const teacherNav = [
   { title: "Dashboard", url: "/teacher/dashboard", icon: <LayoutDashboard /> },
   { title: "My Courses", url: "/teacher/courses", icon: <BookOpen /> },
   { title: "Students", url: "/teacher/students", icon: <Users /> },
-  { title: "Earnings", url: "/teacher/earnings", icon: <DollarSign /> },
   { title: "Settings", url: "/teacher/settings", icon: <Settings /> },
 ]
 
@@ -82,7 +81,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navItems} />
+        <NavMain items={navItems} role={isTeacher ? "teacher" : "student"} />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={userForNav} />
