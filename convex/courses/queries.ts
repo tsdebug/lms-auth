@@ -76,7 +76,8 @@ export const getCoursesByTeacher = query({
     // 1. auth check 
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) {
-      throw new Error("Unauthorized");
+      // Keep dashboard stable if client renders before auth is available.
+      return [];
     }
 
     // 2. get all courses owned by this teacher

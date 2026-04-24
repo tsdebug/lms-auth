@@ -8,7 +8,8 @@ export const getEnrollmentsByStudent = query({
     // 1. auth check
     const authUserId = await getAuthUserId(ctx)
     if (!authUserId) {
-      throw new Error("Unauthorized")
+      // Client queries can briefly run before auth rehydrates; return empty state instead of hard error.
+      return []
     }
 
     // 2. get all enrollments for this student
