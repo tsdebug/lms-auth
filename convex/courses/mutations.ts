@@ -61,6 +61,9 @@ export const createCourse = mutation({
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
+
+        // Return the new ID so the UI can navigate straight into editing.
+        return courseId;
     },
 });
 
