@@ -1,10 +1,12 @@
 "use client"
 
+import Link from "next/link"
 import { ColumnDef } from "@tanstack/react-table"
 import { EllipsisVerticalIcon } from "lucide-react"
 
 export type TeacherCourseRow = {
   id: number
+  courseId: string
   title: string
   status: "draft" | "published" | "archived"
   myRole: string
@@ -69,9 +71,12 @@ export const teacherColumns: ColumnDef<TeacherCourseRow>[] = [
         >
           <EllipsisVerticalIcon className="size-4" />
         </button>
-        <button type="button" className="rounded-md border px-2 py-1 text-xs hover:bg-accent">
+        <Link
+          href={`/teacher/courses/${row.original.courseId}/edit`}
+          className="rounded-md border px-2 py-1 text-xs hover:bg-accent"
+        >
           Edit
-        </button>
+        </Link>
         <button type="button" className="rounded-md border px-2 py-1 text-xs hover:bg-accent">
           Publish
         </button>

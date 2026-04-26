@@ -1,28 +1,49 @@
-import Link from "next/link"
+"use client"
 
-export default async function EditCoursePage({
-  params,
-}: {
-  params: Promise<{ courseId: string }>
-}) {
-  const { courseId } = await params
+import { useQuery } from "convex/react"
+import { api } from "@/convex/_generated/api"
+import { CourseEditForm } from "@/components/course-edit-form"
+import { useParams } from "next/navigation"
+
+export default function EditCoursePage() {
+  const params = useParams()
+  const courseId = params.courseId as string
+  
+  const course = useQuery(api.courses.queries.getCourseDetails, { courseId: courseId as any })
+
+  if (course === undefined) {
+    return (
+      <main className="mx-auto w-full max-w-4xl px-4 py-10">
+        <div className="text-sm text-muted-foreground">Loading course...</div>
+      </main>
+    )
+  }
+
+  if (!course) {
+    return (
+      <main className="mx-auto w-full max-w-4xl px-4 py-10">
+        <div className="text-sm text-destructive">Course not found</div>
+      </main>
+    )
+  }
 
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-10">
       <h1 className="text-2xl font-semibold">Course Editor</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Course created successfully. Continue editing chapters and lessons, then publish when ready.
+        Edit your course details below, then continue with chapters and lessons.
       </p>
-      {/* Keeping this route now prevents a dead-end after create and gives us a stable editor URL. */}
-      <p className="mt-6 rounded-md border bg-card px-4 py-3 text-sm">
-        Editing course ID: <span className="font-mono">{courseId}</span>
-      </p>
-      <Link
-        href="/teacher/dashboard"
-        className="mt-6 inline-flex rounded-md border px-3 py-2 text-sm hover:bg-accent"
-      >
-        Back to dashboard
-      </Link>
+      
+      <div className="mt-8">
+        <CourseEditForm
+          courseId={courseId}
+          initialTitle={course.title}
+          initialDescription={course.description}
+          initialDifficultyLevel={course.difficultyLevel}
+          initialSlug={course.slug}
+          initialThumbnailUrl={course.thumbnailUrl}
+        />
+      </div>
     </main>
   )
 }
