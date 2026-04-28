@@ -27,6 +27,7 @@ export function TeacherCoursesTable() {
   const tableData: TeacherCourseRow[] = courses.map((course, index) => ({
     id: index + 1,
     courseId: String(course._id),
+    convexId: course._id,
     title: course.title,
     status: course.status,
     myRole: course.myRole ?? "owner",
