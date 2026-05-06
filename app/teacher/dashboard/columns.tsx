@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 export type TeacherCourseRow = {
   id: number
@@ -40,6 +41,7 @@ export type TeacherCourseRow = {
 function CourseActions({ row }: { row: TeacherCourseRow }) {
   const publishCourse = useMutation(api.courses.mutations.publishCourse)
   const archiveCourse = useMutation(api.courses.mutations.archiveCourse)
+  const router = useRouter();
 
   async function handlePublish() {
     try {
@@ -69,9 +71,7 @@ function CourseActions({ row }: { row: TeacherCourseRow }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem
-            onClick={() => window.location.href = `/teacher/courses/${row.convexId}/edit`}
-          >
+          <DropdownMenuItem onClick={() => router.push(`/teacher/courses/${row.convexId}`)}>
             Edit
           </DropdownMenuItem>
 
@@ -158,8 +158,8 @@ export const teacherColumns: ColumnDef<TeacherCourseRow>[] = [
         status === "published"
           ? "bg-primary text-primary-foreground"
           : status === "draft"
-          ? "bg-secondary text-secondary-foreground"
-          : "border border-border text-foreground"
+            ? "bg-secondary text-secondary-foreground"
+            : "border border-border text-foreground"
       return (
         <span className={`inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium capitalize ${badgeClass}`}>
           {status}
