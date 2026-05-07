@@ -211,3 +211,33 @@ export const archiveCourse = mutation({
         })
     }
 })
+
+// unarchiveCourse - called when a teacher wants to unarchive their course, to change the course status from "archived" back to "draft" in the courses table
+export const unarchiveCourse = mutation({
+    args: {
+        courseId: v.id("courses"),
+    },
+    handler: async (ctx, args) => {
+        // 1. auth check
+        const authUserId = await getAuthUserId(ctx)
+        if (!authUserId) throw new Error("Unauthenticated")
+
+        // 2. does the course even exist?
+        const course = await ctx.db.get(args.courseId)
+        if (!course) throw new Error("Course not found")
+
+        // 3. role check - only instructors can unarchive courses
+        await requireCourseRole(ctx.db, authUserId, args.courseId)
+
+        // 4. current status check - only archived courses can be unarchived
+        if (course.status !== "archived") {
+            throw new Error("Only archived courses can be unarchived")
+        }
+        
+        // 5. update the course status back to "draft" in the courses table
+        await ctx.db.patch(args.courseId, {
+            status: "draft",
+            updatedAt: Date.now(),
+        })
+    },
+})
