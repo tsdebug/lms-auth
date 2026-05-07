@@ -41,6 +41,7 @@ export type TeacherCourseRow = {
 function CourseActions({ row }: { row: TeacherCourseRow }) {
   const publishCourse = useMutation(api.courses.mutations.publishCourse)
   const archiveCourse = useMutation(api.courses.mutations.archiveCourse)
+  const unarchiveCourse = useMutation(api.courses.mutations.unarchiveCourse)
   const router = useRouter();
 
   async function handlePublish() {
@@ -61,6 +62,15 @@ function CourseActions({ row }: { row: TeacherCourseRow }) {
     }
   }
 
+  async function handleUnarchive() {
+    try {
+      await unarchiveCourse({ courseId: row.convexId })
+      toast.success("Course moved back to draft")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to unarchive")
+    }
+  }
+
   return (
     <div className="flex items-center justify-end gap-1">
       <DropdownMenu>
@@ -71,7 +81,7 @@ function CourseActions({ row }: { row: TeacherCourseRow }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-36">
-          <DropdownMenuItem onClick={() => router.push(`/teacher/courses/${row.convexId}`)}>
+          <DropdownMenuItem onClick={() => router.push(`/teacher/courses/${row.convexId}/edit`)}>
             Edit
           </DropdownMenuItem>
 
@@ -135,6 +145,15 @@ function CourseActions({ row }: { row: TeacherCourseRow }) {
               </AlertDialog>
             </>
           )}
+
+          {row.status === "archived" && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={handleUnarchive}>
+                Unarchive
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
     </div>
@@ -146,7 +165,12 @@ export const teacherColumns: ColumnDef<TeacherCourseRow>[] = [
     accessorKey: "title",
     header: "Course Title",
     cell: ({ row }) => (
-      <span className="font-medium">{row.original.title}</span>
+      <a
+        href={`/teacher/courses/${row.original.convexId}/edit`}
+        className="font-medium hover:underline"
+      >
+        {row.original.title}
+      </a >
     ),
   },
   {
