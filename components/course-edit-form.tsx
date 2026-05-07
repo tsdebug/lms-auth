@@ -1,12 +1,9 @@
 "use client"
-
-// React hooks for state and effects
 import { useMemo, useState } from "react"
-// Convex hooks for database mutations
 import { useMutation } from "convex/react"
-// Next.js navigation for redirects
 import { useRouter } from "next/navigation"
 import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 import {
   Card,
   CardContent,
@@ -26,60 +23,49 @@ import {
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 
-// Allowed difficulty levels for courses
 type DifficultyLevel = "beginner" | "intermediate" | "advanced"
 
-// Props passed to the edit form component with initial course data
 type CourseEditFormProps = {
-  courseId: string
-  initialTitle: string
-  initialDescription?: string
-  initialDifficultyLevel?: DifficultyLevel
-  initialSlug?: string
-  initialThumbnailUrl?: string
+  courseId: Id<"courses">
+  initialData: {
+    title?: string
+    description?: string
+    difficultyLevel?: string | undefined
+    slug?: string
+    thumbnailUrl?: string
+  }
 }
 
-// Convert a course title into a URL-friendly slug
-// e.g., "Introduction to Python" → "introduction-to-python"
 function slugifyTitle(value: string) {
   return value
     .toLowerCase()
     .trim()
-    .replace(/[^a-z0-9\s-]/g, "") // Remove special characters
-    .replace(/\s+/g, "-") // Replace spaces with hyphens
-    .replace(/-+/g, "-") // Collapse multiple hyphens into one
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
 }
 
-export function CourseEditForm({
-  courseId,
-  initialTitle,
-  initialDescription,
-  initialDifficultyLevel,
-  initialSlug,
-  initialThumbnailUrl,
-}: CourseEditFormProps) {
+export function CourseEditForm({ courseId, initialData }: CourseEditFormProps) {
   const router = useRouter()
   const updateCourse = useMutation(api.courses.mutations.updateCourse)
 
-  // Form field states — initialized with existing course data
-  const [title, setTitle] = useState(initialTitle)
-  const [description, setDescription] = useState(initialDescription || "")
+  const [title, setTitle] = useState(initialData.title || "")
+  const [description, setDescription] = useState(initialData.description || "")
   const [difficultyLevel, setDifficultyLevel] = useState<"" | DifficultyLevel>(
-    initialDifficultyLevel || ""
+    initialData.difficultyLevel === "beginner" ||
+    initialData.difficultyLevel === "intermediate" ||
+    initialData.difficultyLevel === "advanced"
+      ? initialData.difficultyLevel
+      : ""
   )
-  const [slug, setSlug] = useState(initialSlug || "")
-  const [thumbnailUrl, setThumbnailUrl] = useState(initialThumbnailUrl || "")
-  
-  // UI state for form submission feedback
+  const [slug, setSlug] = useState(initialData.slug || "")
+  const [thumbnailUrl, setThumbnailUrl] = useState(initialData.thumbnailUrl || "")
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [success, setSuccess] = useState("")
 
-  // Auto-generate slug from title if the user hasn't entered one
-  // Recalculated whenever title changes
   const suggestedSlug = useMemo(() => slugifyTitle(title), [title])
 
-  // Handle form submission — validates and sends update to backend
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setError("")
@@ -87,9 +73,8 @@ export function CourseEditForm({
     setIsSubmitting(true)
 
     try {
-      // Call Convex mutation to update course in database
       await updateCourse({
-        courseId: courseId as any, // Convex type system
+        courseId,
         title: title.trim(),
         description: description.trim() || undefined,
         difficultyLevel: difficultyLevel || undefined,
@@ -97,13 +82,11 @@ export function CourseEditForm({
         thumbnailUrl: thumbnailUrl.trim() || undefined,
       })
 
-      // Show success feedback, then redirect after 1 second
       setSuccess("Course updated successfully!")
       setTimeout(() => {
         router.push("/teacher/dashboard")
       }, 1000)
     } catch (err) {
-      // Display error message if update fails
       setError(err instanceof Error ? err.message : "Failed to update course")
     } finally {
       setIsSubmitting(false)
@@ -120,21 +103,18 @@ export function CourseEditForm({
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Error message alert */}
           {error ? (
             <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </p>
           ) : null}
 
-          {/* Success message alert */}
           {success ? (
             <p className="rounded-md border border-green-300 bg-green-50 px-3 py-2 text-sm text-green-700">
               {success}
             </p>
           ) : null}
 
-          {/* Course title — required field */}
           <div className="space-y-2">
             <Label htmlFor="title">
               Title <span className="text-destructive">*</span>
@@ -148,7 +128,6 @@ export function CourseEditForm({
             />
           </div>
 
-          {/* Course description — optional multi-line text */}
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
             <Textarea
@@ -160,9 +139,7 @@ export function CourseEditForm({
             />
           </div>
 
-          {/* Difficulty level and slug — two-column layout on larger screens */}
           <div className="grid gap-5 sm:grid-cols-2">
-            {/* Difficulty Level dropdown */}
             <div className="space-y-2">
               <Label htmlFor="difficulty">Difficulty Level</Label>
               <Select
@@ -183,7 +160,6 @@ export function CourseEditForm({
               </Select>
             </div>
 
-            {/* URL slug — auto-generated from title if left blank */}
             <div className="space-y-2">
               <Label htmlFor="slug">Slug</Label>
               <Input
@@ -192,15 +168,12 @@ export function CourseEditForm({
                 onChange={(e) => setSlug(e.target.value)}
                 placeholder={suggestedSlug || "auto-generated"}
               />
-              {slug === "" && suggestedSlug && (
-                <p className="text-xs text-muted-foreground">
-                  Will use: {suggestedSlug}
-                </p>
-              )}
+              {slug === "" && suggestedSlug ? (
+                <p className="text-xs text-muted-foreground">Will use: {suggestedSlug}</p>
+              ) : null}
             </div>
           </div>
 
-          {/* Course thumbnail image URL */}
           <div className="space-y-2">
             <Label htmlFor="thumbnail">Thumbnail URL</Label>
             <Input
@@ -212,16 +185,11 @@ export function CourseEditForm({
             />
           </div>
 
-          {/* Action buttons — Save and Cancel */}
           <div className="flex gap-3">
             <Button type="submit" disabled={isSubmitting}>
               {isSubmitting ? "Saving..." : "Save changes"}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.push("/teacher/dashboard")}
-            >
+            <Button type="button" variant="outline" onClick={() => router.push("/teacher/dashboard")}>
               Cancel
             </Button>
           </div>

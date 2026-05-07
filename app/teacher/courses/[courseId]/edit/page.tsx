@@ -1,49 +1,79 @@
 "use client"
 
+import { useParams } from "next/navigation"
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
+import { AppSidebar } from "@/components/app-sidebar"
+import { SiteHeader } from "@/components/site-header"
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
+import { ChapterList } from "@/app/courses/ChapterList"
 import { CourseEditForm } from "@/components/course-edit-form"
-import { useParams } from "next/navigation"
+import { Badge } from "@/components/ui/badge"
 
-export default function EditCoursePage() {
+export default function CourseEditorPage() {
   const params = useParams()
-  const courseId = params.courseId as string
-  
-  const course = useQuery(api.courses.queries.getCourseDetails, { courseId: courseId as any })
+  const courseId = params.courseId as Id<"courses">
 
-  if (course === undefined) {
-    return (
-      <main className="mx-auto w-full max-w-4xl px-4 py-10">
-        <div className="text-sm text-muted-foreground">Loading course...</div>
-      </main>
-    )
+  const courseContent = useQuery(
+    api.chapters.queries.getCourseContent,
+    { courseId }
+  )
+
+  if (courseContent === undefined) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading...</div>
   }
 
-  if (!course) {
-    return (
-      <main className="mx-auto w-full max-w-4xl px-4 py-10">
-        <div className="text-sm text-destructive">Course not found</div>
-      </main>
-    )
+  if (courseContent === null) {
+    return <div className="p-6 text-sm text-muted-foreground">Course not found</div>
   }
 
   return (
-    <main className="mx-auto w-full max-w-4xl px-4 py-10">
-      <h1 className="text-2xl font-semibold">Course Editor</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Edit your course details below, then continue with chapters and lessons.
-      </p>
-      
-      <div className="mt-8">
-        <CourseEditForm
-          courseId={courseId}
-          initialTitle={course.title}
-          initialDescription={course.description}
-          initialDifficultyLevel={course.difficultyLevel}
-          initialSlug={course.slug}
-          initialThumbnailUrl={course.thumbnailUrl}
-        />
-      </div>
-    </main>
+    <SidebarProvider
+      style={{
+        "--sidebar-width": "calc(var(--spacing) * 72)",
+        "--header-height": "calc(var(--spacing) * 12)",
+      } as React.CSSProperties}
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col gap-8 p-6">
+
+          {/* section 1 — course details */}
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-semibold">{courseContent.title}</h1>
+              <Badge variant="outline" className="capitalize">
+                {courseContent.status}
+              </Badge>
+            </div>
+            <CourseEditForm
+              courseId={courseId}
+              initialData={{
+                title: courseContent.title,
+                description: courseContent.description,
+                difficultyLevel: courseContent.difficultyLevel,
+                slug: courseContent.slug,
+                thumbnailUrl: courseContent.thumbnailUrl,
+              }}
+            />
+          </div>
+
+          {/* divider */}
+          <div className="border-t" />
+
+          {/* section 2 — chapters and lessons */}
+          <div className="flex flex-col gap-4">
+            <h2 className="text-lg font-semibold">Content</h2>
+            <ChapterList
+              courseId={courseId}
+              chapters={courseContent.chapters}
+            />
+          </div>
+
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }
