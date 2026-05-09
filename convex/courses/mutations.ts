@@ -3,14 +3,8 @@ import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireRole, requireCourseRole } from "../lib/authorization"
 
-
-// args.something — data that came in from outside, from the frontend calling this function.
-// variable._id — data you fetched from the database inside the function itself.
-
-// createCourse - called when a teacher creates a new course, to save the course details and link it to the creator as the lead instructor
 export const createCourse = mutation({
     args: {
-        // what does a course need at creation time? - hint: look at the courses table in schema.ts
         title: v.string(),
         description: v.optional(v.string()),
         thumbnailUrl: v.optional(v.string()),
@@ -18,86 +12,92 @@ export const createCourse = mutation({
         difficultyLevel: v.optional(
             v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))
         ),
-        // status is not needed cuz newly created courses must always default to "draft". The frontend should never be able to pass a different status at creation time. 
+        // categoryIds lives in course_categories bridge table
+        // not on the courses table itself — extracted separately below
+        categoryIds: v.optional(v.array(v.id("categories"))),
     },
     handler: async (ctx, args) => {
         // 1. auth check
         const authUserId = await getAuthUserId(ctx);
-        if (!authUserId) {
-            throw new Error("User must be authenticated");
-        }
+        if (!authUserId) throw new Error("Unauthenticated");
 
-        // 2. role check — only teachers can create courses (new concept!)
-        await requireRole(ctx.db, authUserId, "teacher"); // if the user doesn't have the teacher role, this will throw an error and stop the execution of the handler here. If they do have the teacher role, it will just continue to the next line.
+        // 2. role check
+        await requireRole(ctx.db, authUserId, "teacher");
 
         // 3. slug uniqueness check
         if (args.slug) {
             const existingSlug = await ctx.db
-                .query("courses") // courses table
-                .withIndex("slug", (q) => q.eq("slug", args.slug)) // checks if the said slug already exists in the courses table
+                .query("courses")
+                .withIndex("slug", (q) => q.eq("slug", args.slug))
                 .first();
-            if (existingSlug) {
-                throw new Error("Slug already in use");
-            }
+            if (existingSlug) throw new Error("Slug already in use");
         }
-        // 4. insert into courses table
+
+        // 4. extract categoryIds before inserting course
+        // categoryIds must NOT be spread into courses table
+        // it belongs in course_categories bridge table only
+        const { categoryIds, ...courseFields } = args;
+
+        // 5. insert course — only course fields, no categoryIds
         const courseId = await ctx.db.insert("courses", {
-            title: args.title,
+            ...courseFields,
             userId: authUserId,
-            description: args.description,
-            thumbnailUrl: args.thumbnailUrl,
-            slug: args.slug,
-            difficultyLevel: args.difficultyLevel,
             status: "draft",
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
 
-        // 5. insert into course_instructors table (the creator is the lead instructor)
+        // 6. insert into course_instructors — creator is lead
         await ctx.db.insert("course_instructors", {
-            courseId: courseId,
+            courseId,
             userId: authUserId,
-            role: "lead", // Course instructor role — what is your position on a specific course? "lead" | "co-instructor" | "evaluator"
+            role: "lead",
             createdAt: Date.now(),
             updatedAt: Date.now(),
         });
 
-        // Return the new ID so the UI can navigate straight into editing.
+        // 7. insert category links into bridge table
+        if (categoryIds && categoryIds.length > 0) {
+            for (const categoryId of categoryIds) {
+                await ctx.db.insert("course_categories", {
+                    courseId,
+                    categoryId,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                });
+            }
+        }
+
         return courseId;
     },
 });
 
-//  updateCourse - called when a teacher updates their course details, to update the course info in the courses table
-// idea - if the course i am trying to update exists and if i am authenticated as well as authorized - instructor or co-instructor on this course
 export const updateCourse = mutation({
     args: {
         courseId: v.id("courses"),
         title: v.optional(v.string()),
         description: v.optional(v.string()),
-        thumbnailUrl: v.optional(v.string()),   // PRD §4
+        thumbnailUrl: v.optional(v.string()),
         slug: v.optional(v.string()),
         difficultyLevel: v.optional(
             v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))
         ),
+        // same as createCourse — categoryIds is handled separately
+        categoryIds: v.optional(v.array(v.id("categories"))),
     },
-
     handler: async (ctx, args) => {
         // 1. auth check
         const authUserId = await getAuthUserId(ctx);
-        if (!authUserId) {
-            throw new Error("User must be authenticated");
-        }
+        if (!authUserId) throw new Error("Unauthenticated");
 
-        // 2. does the course even exist?
+        // 2. does course exist?
         const existingCourse = await ctx.db.get(args.courseId);
-        if (!existingCourse) {
-            throw new Error("Course not found");
-        }
+        if (!existingCourse) throw new Error("Course not found");
 
-        // 3. role check 
-        await requireCourseRole(ctx.db, authUserId, args.courseId)
+        // 3. role check
+        await requireCourseRole(ctx.db, authUserId, args.courseId);
 
-        // 4. slug uniqueness check - if the instructor is trying to update the slug, we need to make sure the new slug is not already in use by another course
+        // 4. slug uniqueness check
         if (args.slug) {
             const existingSlug = await ctx.db
                 .query("courses")
@@ -108,16 +108,41 @@ export const updateCourse = mutation({
             }
         }
 
-        // 5. update the course details in the courses table - only update the fields that were actually passed in the args (the optional ones might not be there, and we don't want to overwrite existing data with undefined)
-        const { courseId, ...fieldsToUpdate } = args; // to separate courseId from the rest of the fields
+        // 5. extract categoryIds AND courseId before patching
+        // categoryIds must NOT be patched onto courses table
+        // courseId is just the identifier, not a field to update
+        const { courseId, categoryIds, ...fieldsToUpdate } = args;
+
+        // 6. patch only course fields onto courses table
         await ctx.db.patch(args.courseId, {
             ...fieldsToUpdate,
             updatedAt: Date.now(),
         });
+
+        // 7. handle categories in bridge table
+        if (categoryIds !== undefined) {
+            // delete all existing category links for this course
+            // then re-insert fresh ones — simpler than diffing
+            const existing = await ctx.db
+                .query("course_categories")
+                .withIndex("courseId", (q) => q.eq("courseId", args.courseId))
+                .collect();
+            for (const row of existing) {
+                await ctx.db.delete(row._id);
+            }
+            // insert new category links
+            for (const categoryId of categoryIds) {
+                await ctx.db.insert("course_categories", {
+                    courseId: args.courseId,
+                    categoryId,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                });
+            }
+        }
     },
 });
 
-// publishCourse - called when a teacher wants to publish their course, to change the course status from "draft" to "published" in the courses table
 export const publishCourse = mutation({
     args: {
         courseId: v.id("courses"),
@@ -125,119 +150,102 @@ export const publishCourse = mutation({
     handler: async (ctx, args) => {
         // 1. auth check
         const authUserId = await getAuthUserId(ctx);
-        if (!authUserId) {
-            throw new Error("User must be authenticated");
-        }
+        if (!authUserId) throw new Error("Unauthenticated");
 
-        // 2. does the course even exist?
+        // 2. does course exist?
         const existingCourse = await ctx.db.get(args.courseId);
-        if (!existingCourse) {
-            throw new Error("Course not found");
-        }
+        if (!existingCourse) throw new Error("Course not found");
 
-        // 3. role check - only instructors can publish courses
-        await requireCourseRole(ctx.db, authUserId, args.courseId)
+        // 3. role check
+        await requireCourseRole(ctx.db, authUserId, args.courseId);
 
-        // 4. current status check - only draft courses can be published
+        // 4. only draft courses can be published
         if (existingCourse.status !== "draft") {
             throw new Error("Only draft courses can be published");
         }
 
-        // 5. prerequisite check - a course must have at least one module with at least one lesson before it can be published
-        // * Get all chapters for this course 
-        // * For each chapter — check if it has at least one lesson 
-        // * If any chapter has zero lessons — throw an error
+        // 5. must have at least one chapter with at least one lesson
         const chapters = await ctx.db
             .query("chapters")
             .withIndex("courseId", (q) => q.eq("courseId", args.courseId))
-            .collect(); // cuz we need to collect all the matches to check them in the next step
+            .collect();
 
-        // no chapters
         if (chapters.length === 0) {
             throw new Error("Course must have at least one chapter to be published");
         }
 
-        // is there at least one lesson in each chapter?
         for (const chapter of chapters) {
             const lesson = await ctx.db
                 .query("lessons")
                 .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
                 .first();
-
             if (!lesson) {
-                throw new Error("Each chapter must have at least one lesson to be published");
+                throw new Error(`Chapter "${chapter.title}" must have at least one lesson`);
             }
         }
 
-        // 6. update the course status to "published" in the courses table
+        // 6. publish
         await ctx.db.patch(args.courseId, {
             status: "published",
             updatedAt: Date.now(),
-        })
-    }
-})
+        });
+    },
+});
 
-// archiveCourse - called when a teacher wants to archive their course, to change the course status from "published" to "archived" in the courses table
 export const archiveCourse = mutation({
     args: {
         courseId: v.id("courses"),
     },
     handler: async (ctx, args) => {
-
         // 1. auth check
         const authUserId = await getAuthUserId(ctx);
-        if (!authUserId) {
-            throw new Error("User must be authenticated");
-        }
+        if (!authUserId) throw new Error("Unauthenticated");
 
-        // 2. does the course even exist?
+        // 2. does course exist?
         const existingCourse = await ctx.db.get(args.courseId);
-        if (!existingCourse) {
-            throw new Error("Course not found");
-        }
+        if (!existingCourse) throw new Error("Course not found");
 
-        // 3. role check - only instructors can archive courses
-        await requireCourseRole(ctx.db, authUserId, args.courseId)
+        // 3. role check
+        await requireCourseRole(ctx.db, authUserId, args.courseId);
 
-        // 4. current status check - only published courses can be archived
+        // 4. only published courses can be archived
         if (existingCourse.status !== "published") {
             throw new Error("Only published courses can be archived");
         }
 
-        // 5. update the course status to "archived" in the courses table
+        // 5. archive
         await ctx.db.patch(args.courseId, {
             status: "archived",
             updatedAt: Date.now(),
-        })
-    }
-})
+        });
+    },
+});
 
-// unarchiveCourse - called when a teacher wants to unarchive their course, to change the course status from "archived" back to "draft" in the courses table
 export const unarchiveCourse = mutation({
     args: {
         courseId: v.id("courses"),
     },
     handler: async (ctx, args) => {
         // 1. auth check
-        const authUserId = await getAuthUserId(ctx)
-        if (!authUserId) throw new Error("Unauthenticated")
+        const authUserId = await getAuthUserId(ctx);
+        if (!authUserId) throw new Error("Unauthenticated");
 
-        // 2. does the course even exist?
-        const course = await ctx.db.get(args.courseId)
-        if (!course) throw new Error("Course not found")
+        // 2. does course exist?
+        const existingCourse = await ctx.db.get(args.courseId);
+        if (!existingCourse) throw new Error("Course not found");
 
-        // 3. role check - only instructors can unarchive courses
-        await requireCourseRole(ctx.db, authUserId, args.courseId)
+        // 3. role check
+        await requireCourseRole(ctx.db, authUserId, args.courseId);
 
-        // 4. current status check - only archived courses can be unarchived
-        if (course.status !== "archived") {
-            throw new Error("Only archived courses can be unarchived")
+        // 4. only archived courses can be unarchived
+        if (existingCourse.status !== "archived") {
+            throw new Error("Only archived courses can be unarchived");
         }
-        
-        // 5. update the course status back to "draft" in the courses table
+
+        // 5. move back to draft
         await ctx.db.patch(args.courseId, {
             status: "draft",
             updatedAt: Date.now(),
-        })
+        });
     },
-})
+});

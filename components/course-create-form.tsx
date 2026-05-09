@@ -1,34 +1,27 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useMutation } from "convex/react"
+import { useMutation, useQuery } from "convex/react"
 import { useRouter } from "next/navigation"
 import { api } from "@/convex/_generated/api"
+import { Id } from "@/convex/_generated/dataModel"
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
+  Card, CardContent, CardDescription, CardHeader, CardTitle,
 } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Checkbox } from "@/components/ui/checkbox"
 
 type DifficultyLevel = "beginner" | "intermediate" | "advanced"
 
 function slugifyTitle(value: string) {
   return value
-    .toLowerCase()
-    .trim()
+    .toLowerCase().trim()
     .replace(/[^a-z0-9\s-]/g, "")
     .replace(/\s+/g, "-")
     .replace(/-+/g, "-")
@@ -37,23 +30,31 @@ function slugifyTitle(value: string) {
 export function CourseCreateForm() {
   const router = useRouter()
   const createCourse = useMutation(api.courses.mutations.createCourse)
+  const categories = useQuery(api.courses.queries.getCategories)
 
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [difficultyLevel, setDifficultyLevel] = useState<"" | DifficultyLevel>("")
   const [slug, setSlug] = useState("")
   const [thumbnailUrl, setThumbnailUrl] = useState("")
+  const [selectedCategories, setSelectedCategories] = useState<Id<"categories">[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState("")
 
-  // If slug is blank, we preview what will be auto-generated from title.
   const suggestedSlug = useMemo(() => slugifyTitle(title), [title])
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  function toggleCategory(id: Id<"categories">) {
+    setSelectedCategories((prev) =>
+      prev.includes(id)
+        ? prev.filter((c) => c !== id)
+        : [...prev, id]
+    )
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setError("")
     setIsSubmitting(true)
-
     try {
       const courseId = await createCourse({
         title: title.trim(),
@@ -61,8 +62,8 @@ export function CourseCreateForm() {
         difficultyLevel: difficultyLevel || undefined,
         slug: slug.trim() || suggestedSlug || undefined,
         thumbnailUrl: thumbnailUrl.trim() || undefined,
+        categoryIds: selectedCategories.length > 0 ? selectedCategories : undefined,
       })
-
       router.push(`/teacher/courses/${courseId}/edit`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create course")
@@ -81,11 +82,11 @@ export function CourseCreateForm() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-5">
-          {error ? (
+          {error && (
             <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {error}
             </p>
-          ) : null}
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="title">
@@ -115,7 +116,7 @@ export function CourseCreateForm() {
               <Label htmlFor="difficulty">Difficulty Level</Label>
               <Select
                 value={difficultyLevel}
-                onValueChange={(value) => setDifficultyLevel(value as "" | DifficultyLevel)}
+                onValueChange={(v) => setDifficultyLevel(v as "" | DifficultyLevel)}
               >
                 <SelectTrigger id="difficulty" className="w-full">
                   <SelectValue placeholder="Choose difficulty (optional)" />
@@ -150,6 +151,32 @@ export function CourseCreateForm() {
               onChange={(e) => setThumbnailUrl(e.target.value)}
               placeholder="Optional for now (file upload comes later)"
             />
+          </div>
+
+          {/* categories */}
+          <div className="space-y-2">
+            <Label>Categories</Label>
+            {categories === undefined ? (
+              <p className="text-xs text-muted-foreground">Loading categories...</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {categories.map((cat) => (
+                  <div key={cat._id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={cat._id}
+                      checked={selectedCategories.includes(cat._id)}
+                      onCheckedChange={() => toggleCategory(cat._id)}
+                    />
+                    <label
+                      htmlFor={cat._id}
+                      className="text-sm cursor-pointer"
+                    >
+                      {cat.name}
+                    </label>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-end gap-2">

@@ -32,6 +32,13 @@ export const getCourseContent = query({
         // sort by index since Convex doesn't guarantee order
         chapters.sort((a, b) => a.index - b.index)
 
+        const courseCategories = await ctx.db
+            .query("course_categories")
+            .withIndex("courseId", (q) => q.eq("courseId", args.courseId))
+            .collect()
+
+        const categoryIds = courseCategories.map((cc) => cc.categoryId)
+
         // 4. enrich each chapter with its lessons
         const chaptersWithLessons = await Promise.all(
             chapters.map(async (chapter) => {
@@ -49,6 +56,7 @@ export const getCourseContent = query({
         // 5. return course with chapters+lessons
         return {
             ...course,
+            categoryIds,
             chapters: chaptersWithLessons,
         }
     },

@@ -56,6 +56,7 @@ export default function CourseEditorPage() {
                 difficultyLevel: courseContent.difficultyLevel,
                 slug: courseContent.slug,
                 thumbnailUrl: courseContent.thumbnailUrl,
+                categoryIds: courseContent.categoryIds,  // ← pass pre-selected categories
               }}
             />
           </div>

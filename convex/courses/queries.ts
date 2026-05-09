@@ -3,10 +3,9 @@ import { v } from "convex/values";
 import { paginationOptsValidator } from "convex/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 
-// getCourses - Public query for paginated, filterable published course list
+// getCourses — public, paginated, filterable published course list
 export const getCourses = query({
   args: {
-    // needed filter relevant to the course list page, but not necessarily the course details page
     paginationOpts: paginationOptsValidator,
     categoryId: v.optional(v.id("categories")),
     tagId: v.optional(v.id("tags")),
@@ -15,83 +14,55 @@ export const getCourses = query({
     ),
   },
   handler: async (ctx, args) => {
-    // step 1 - get published courses
     const results = await ctx.db
       .query("courses")
       .withIndex("status", (q) => q.eq("status", "published"))
-      .paginate(args.paginationOpts); // provide one page at a time rather than all results at once
+      .paginate(args.paginationOpts);
 
-    // step 2 - apply optional filters
-
-    // difficulty level filter 
-    // Since filtering and replacing courses, need to use let
-    let courses = results.page; // extract the array of courses
+    let courses = results.page;
 
     if (args.difficultyLevel) {
-      courses = courses.filter(
-        (course) => course.difficultyLevel === args.difficultyLevel
-      );
+      courses = courses.filter((c) => c.difficultyLevel === args.difficultyLevel);
     }
 
-    // category filter
     if (args.categoryId) {
-      // 1 - find all course_categories rows for this category
       const courseCategories = await ctx.db
         .query("course_categories")
         .withIndex("categoryId", (q) => q.eq("categoryId", args.categoryId!))
         .collect();
-
-      // 2 - extract just the courseIds into a simple array
-      const courseIds = courseCategories.map((cc) => cc.courseId); // Result is a plain array of IDs
-
-      // 3 - keep only courses whose _id is in that array
-      courses = courses.filter((course) => courseIds.includes(course._id));  // .includes() — checks if a value exists in an array
+      const courseIds = courseCategories.map((cc) => cc.courseId);
+      courses = courses.filter((c) => courseIds.includes(c._id));
     }
 
-    // tag filter
     if (args.tagId) {
-      // 1 - find all course_tags rows for this tag
       const courseTags = await ctx.db
         .query("course_tags")
         .withIndex("tagId", (q) => q.eq("tagId", args.tagId!))
         .collect();
-
-      // 2 - extract just the courseIds into a simple array
-      const courseIds = courseTags.map((ct) => ct.courseId); // Result is a plain array of IDs
-
-      // 3 - keep only courses whose _id is in that array
-      courses = courses.filter((course) => courseIds.includes(course._id));  // .includes() — checks if a value exists in an array
+      const courseIds = courseTags.map((ct) => ct.courseId);
+      courses = courses.filter((c) => courseIds.includes(c._id));
     }
 
-    // step 3 - return results with filtered courses
     return { ...results, page: courses };
   },
 });
 
-
-// getCoursesByTeacher - Private query for paginated, filterable course list for a specific teacher
+// getCoursesByTeacher — private, returns teacher's own courses
+// enriched with their role on each course and student count
 export const getCoursesByTeacher = query({
   args: {},
   handler: async (ctx) => {
-    // 1. auth check 
     const authUserId = await getAuthUserId(ctx);
-    if (!authUserId) {
-      // Keep dashboard stable if client renders before auth is available.
-      return [];
-    }
+    if (!authUserId) throw new Error("Unauthorized");
 
-    // 2. get all courses owned by this teacher
     const courses = await ctx.db
       .query("courses")
       .withIndex("userId", (q) => q.eq("userId", authUserId))
       .collect();
 
-    // 3. for each course, enrich it with role + student count
-    // Promise.all because each enrichment is async — same pattern as getCourseDetails
     const enrichedCourses = await Promise.all(
       courses.map(async (course) => {
-        
-        // 3a. find this teacher's row in course_instructors for this course
+        // get this teacher's role on this specific course
         const instructorRow = await ctx.db
           .query("course_instructors")
           .withIndex("courseId_userId", (q) =>
@@ -99,17 +70,16 @@ export const getCoursesByTeacher = query({
           )
           .first();
 
-        // 3b. count enrollments for this course
+        // count enrolled students for this course
         const enrollments = await ctx.db
           .query("enrollments")
           .withIndex("courseId", (q) => q.eq("courseId", course._id))
           .collect();
 
-        // 3c. combine everything into one object
         return {
-          ...course,                              // all original course fields
-          myRole: instructorRow?.role ?? "owner", // their role on this course
-          studentCount: enrollments.length,       // how many students enrolled
+          ...course,
+          myRole: instructorRow?.role ?? "owner",
+          studentCount: enrollments.length,
         };
       })
     );
@@ -118,45 +88,39 @@ export const getCoursesByTeacher = query({
   },
 });
 
-// getCourseDetails - Public query for course details page, which includes only published courses
+// getCourseDetails — public for published courses, owner sees draft too
 export const getCourseDetails = query({
   args: {
     courseId: v.id("courses"),
   },
   handler: async (ctx, args) => {
+    const course = await ctx.db.get(args.courseId);
+    if (!course) throw new Error("Course not found");
 
-    // 1. fetch the course using courseId
-    const course = await ctx.db.get(args.courseId); // Convex already knows which table from the ID type — don't need to specify it.
-
-    if (!course) {
-      throw new Error("Course not found");
-    }
-
-    // chapters of the said course
     const chapters = await ctx.db
       .query("chapters")
       .withIndex("courseId", (q) => q.eq("courseId", args.courseId))
       .collect();
 
-    // lessons of the said course but chapterwise
     const chaptersWithLessons = await Promise.all(
       chapters.map(async (chapter) => {
         const lessons = await ctx.db
           .query("lessons")
           .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
           .collect();
-
-        return {
-          ...chapter,
-          lessons: lessons,
-        };
+        return { ...chapter, lessons };
       })
     );
 
-    return {
-      ...course,
-      chapters: chaptersWithLessons,
-    };
+    return { ...course, chapters: chaptersWithLessons };
+  },
+});
 
-  }
-})
+// getCategories — public, no auth needed
+// used in course forms and public courses page for filtering
+export const getCategories = query({
+  args: {},
+  handler: async (ctx) => {
+    return await ctx.db.query("categories").collect();
+  },
+});
