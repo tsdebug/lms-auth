@@ -24,6 +24,7 @@ import {
 interface Lesson {
   _id: Id<"lessons">
   title: string
+  description?: string
   index: number
 }
 
