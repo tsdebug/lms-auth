@@ -1,4 +1,5 @@
 import { query } from "../_generated/server"
+import { v } from "convex/values"
 import { getAuthUserId } from "@convex-dev/auth/server"
 
 // getEnrollmentsByStudent - returns all enrollments for the currently authenticated student, enriched with course and instructor data
@@ -42,5 +43,27 @@ export const getEnrollmentsByStudent = query({
 
     // filter out any null results (courses that were deleted)
     return enriched.filter(Boolean)
+  },
+})
+
+// getEnrollmentStatus — checks if current user is enrolled in a course
+export const getEnrollmentStatus = query({
+  args: {
+    courseId: v.id("courses"),
+  },
+  handler: async (ctx, args) => {
+    const authUserId = await getAuthUserId(ctx)
+    // not logged in — return null, not an error
+    // public page needs to handle unauthenticated users gracefully
+    if (!authUserId) return null
+
+    const enrollment = await ctx.db
+      .query("enrollments")
+      .withIndex("userId_courseId", (q) =>
+        q.eq("userId", authUserId).eq("courseId", args.courseId)
+      )
+      .first()
+
+    return enrollment ?? null
   },
 })

@@ -6,6 +6,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 // getCourses — public, paginated, filterable published course list
 export const getCourses = query({
   args: {
+    // pagination options for efficient pagination meaning we don't have to load and filter all courses in memory - instead we can paginate at the database level and only filter the current page in memory
     paginationOpts: paginationOptsValidator,
     categoryId: v.optional(v.id("categories")),
     tagId: v.optional(v.id("tags")),
@@ -46,6 +47,75 @@ export const getCourses = query({
     return { ...results, page: courses };
   },
 });
+
+// getPublishedCourses — simple version without pagination
+// used for public courses page 
+export const getPublishedCourses = query({
+  args: {
+    categoryId: v.optional(v.id("categories")),
+    difficultyLevel: v.optional(
+      v.union(
+        v.literal("beginner"),
+        v.literal("intermediate"),
+        v.literal("advanced")
+      )
+    ),
+  },
+  handler: async (ctx, args) => {
+    // get all published courses
+    let courses = await ctx.db
+      .query("courses")
+      .withIndex("status", (q) => q.eq("status", "published")) // only published courses
+      .collect()
+
+    // filter by difficulty if provided
+    if (args.difficultyLevel) {
+      courses = courses.filter(
+        (c) => c.difficultyLevel === args.difficultyLevel
+      )
+    }
+
+    // filter by category if provided
+    if (args.categoryId) {
+      const courseCategories = await ctx.db
+        .query("course_categories")
+        .withIndex("categoryId", (q) =>
+          q.eq("categoryId", args.categoryId!)
+        )
+        .collect()
+      const courseIds = courseCategories.map((cc) => cc.courseId)
+      courses = courses.filter((c) => courseIds.includes(c._id))
+    }
+
+    // enrich each course with instructor name and categories - enrich keyword id used because we are adding additional data to the course object
+    const enriched = await Promise.all(
+      courses.map(async (course) => {
+        // get instructor name from users table
+        const instructor = await ctx.db.get(course.userId)
+
+        // get categories for this course
+        const courseCategories = await ctx.db
+          .query("course_categories")
+          .withIndex("courseId", (q) => q.eq("courseId", course._id))
+          .collect()
+
+        const categories = await Promise.all(
+          courseCategories.map((cc) => ctx.db.get(cc.categoryId))
+        )
+
+        return {
+          ...course,
+          instructorName: instructor
+            ? `${instructor.fName ?? ""} ${instructor.lName ?? ""}`.trim()
+            : "Unknown",
+          categories: categories.filter(Boolean),
+        }
+      })
+    )
+
+    return enriched
+  },
+})
 
 // getCoursesByTeacher — private, returns teacher's own courses
 // enriched with their role on each course and student count
