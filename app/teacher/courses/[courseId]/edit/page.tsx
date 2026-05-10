@@ -7,7 +7,7 @@ import { Id } from "@/convex/_generated/dataModel"
 import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
-import { ChapterList } from "@/app/courses/ChapterList"
+import { ChapterList } from "@/components/courses/ChapterList"
 import { CourseEditForm } from "@/components/course-edit-form"
 import { Badge } from "@/components/ui/badge"
 

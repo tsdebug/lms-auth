@@ -6,7 +6,7 @@ import { Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { PlusIcon, Trash2Icon } from "lucide-react"
-import { LessonItem } from "@/app/courses/LessonItem"
+import { LessonItem } from "@/components/courses/LessonItem"
 import { toast } from "sonner"
 import { useState } from "react"
 import {
