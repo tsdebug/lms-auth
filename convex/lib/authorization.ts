@@ -47,3 +47,22 @@ export async function requireCourseRole(
         throw new Error(`User ${userId} is not an instructor for course ${courseId}`);
     }
 }
+
+// checks student is enrolled in a course
+// throws if not — same pattern as requireCourseRole
+export async function requireEnrollment(
+    db: DatabaseReader,
+    userId: Id<"users">,
+    courseId: Id<"courses">
+): Promise<void> {
+    const enrollment = await db
+        .query("enrollments")
+        .withIndex("userId_courseId", (q) =>
+            q.eq("userId", userId).eq("courseId", courseId)
+        )
+        .first()
+
+    if (!enrollment) {
+        throw new Error("Unauthorized: not enrolled in this course")
+    }
+}
