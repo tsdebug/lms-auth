@@ -21,6 +21,7 @@ import type * as lessons_mutations from "../lessons/mutations.js";
 import type * as lessons_queries from "../lessons/queries.js";
 import type * as lib_authorization from "../lib/authorization.js";
 import type * as quizzes_mutations from "../quizzes/mutations.js";
+import type * as quizzes_queries from "../quizzes/queries.js";
 import type * as seed from "../seed.js";
 import type * as users from "../users.js";
 import type * as users_mutations from "../users/mutations.js";
@@ -46,6 +47,7 @@ declare const fullApi: ApiFromModules<{
   "lessons/queries": typeof lessons_queries;
   "lib/authorization": typeof lib_authorization;
   "quizzes/mutations": typeof quizzes_mutations;
+  "quizzes/queries": typeof quizzes_queries;
   seed: typeof seed;
   users: typeof users;
   "users/mutations": typeof users_mutations;
