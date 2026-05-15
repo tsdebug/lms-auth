@@ -52,11 +52,11 @@ export const createQuiz = mutation({
     },
 })
 
-// ---createQuizQuestion---
+// ---createQuestion---
 // teacher adds questions to an existing quiz
 // linking: quizId links question to quiz to check permissions we follow: question ->> quiz → lesson → chapter ->> courseId
 // RULE: a quiz can have multiple questions
-export const createQuizQuestion = mutation({
+export const createQuestion = mutation({
     args: {
         quizId: v.id("quizzes"),    // which quiz this question belongs to
         content: v.string(),        // the question text
@@ -99,11 +99,11 @@ export const createQuizQuestion = mutation({
     }
 })
 
-// --- createAnswerOption ---
+// --- createAnswers ---
 // teacher adds answer options to a quiz question
 // linking: questionId links answers to question to check permissions we follow: answer ->> question → quiz → lesson → chapter ->> courseId
 // RULE: a question can have multiple answer options, but only one correct answer
-export const createAnswerOption = mutation({
+export const createAnswers = mutation({
     args: {
         questionId: v.id("q_questions"), // which question this answer option belongs to
         // array because teacher adds multiple options at once, frontend will enforce only one correct answer
