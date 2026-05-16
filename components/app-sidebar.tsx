@@ -19,12 +19,12 @@ import {
   CommandIcon,
   Award,
   BookOpen,
-  Search,
   DollarSign,
   LayoutDashboard,
   Settings,
   TrendingUp,
   Users,
+  SearchIcon,
 } from "lucide-react"
 
 const teacherNav = [
@@ -36,7 +36,7 @@ const teacherNav = [
 
 const studentNav = [
   { title: "Dashboard", url: "/student/dashboard", icon: <LayoutDashboard /> },
-  { title: "Browse Courses", url: "/courses", icon: <Search /> },
+  { title: "Browse Courses", url: "/courses", icon: <SearchIcon /> },
   { title: "My Courses", url: "/student/courses", icon: <BookOpen /> },
   { title: "Progress", url: "/student/progress", icon: <TrendingUp /> },
   { title: "Certificates", url: "/student/certificates", icon: <Award /> },
