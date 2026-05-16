@@ -42,6 +42,8 @@ function CourseActions({ row }: { row: TeacherCourseRow }) {
   const publishCourse = useMutation(api.courses.mutations.publishCourse)
   const archiveCourse = useMutation(api.courses.mutations.archiveCourse)
   const unarchiveCourse = useMutation(api.courses.mutations.unarchiveCourse)
+  const deleteCourse = useMutation(api.courses.mutations.deleteCourse)
+
   const router = useRouter();
 
   async function handlePublish() {
@@ -70,6 +72,16 @@ function CourseActions({ row }: { row: TeacherCourseRow }) {
       toast.error(err instanceof Error ? err.message : "Failed to unarchive")
     }
   }
+
+  async function handleDelete() {
+    try {
+      await deleteCourse({ courseId: row.convexId })
+      toast.success("Course deleted")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete")
+    }
+  }
+
 
   return (
     <div className="flex items-center justify-end gap-1">
@@ -152,6 +164,40 @@ function CourseActions({ row }: { row: TeacherCourseRow }) {
               <DropdownMenuItem onClick={handleUnarchive}>
                 Unarchive
               </DropdownMenuItem>
+            </>
+          )}
+
+          {row.status === "draft" && (
+            <>
+              <DropdownMenuSeparator />
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <DropdownMenuItem
+                    onSelect={(e) => e.preventDefault()}
+                    className="text-destructive"
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this course?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete the course and all its
+                      chapters and lessons. This cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </>
           )}
         </DropdownMenuContent>

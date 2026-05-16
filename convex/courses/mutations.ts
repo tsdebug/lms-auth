@@ -3,6 +3,8 @@ import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireRole, requireCourseRole } from "../lib/authorization"
 
+// --- createCourse ---
+// a teacher can create a course, which starts in "draft" status
 export const createCourse = mutation({
     args: {
         title: v.string(),
@@ -72,6 +74,9 @@ export const createCourse = mutation({
     },
 });
 
+// --- updateCourse ---
+// a teacher can update course fields, but NOT the status (published courses can't be edited)
+// categoryIds is handled separately since it's a many-to-many bridge table, not a field on courses
 export const updateCourse = mutation({
     args: {
         courseId: v.id("courses"),
@@ -143,6 +148,9 @@ export const updateCourse = mutation({
     },
 });
 
+
+// --- publishCourse ---
+// a teacher can publish a course, but only if it's in draft status and has at least one chapter with at least one lesson
 export const publishCourse = mutation({
     args: {
         courseId: v.id("courses"),
@@ -192,6 +200,9 @@ export const publishCourse = mutation({
     },
 });
 
+
+// --- archiveCourse ---
+// a teacher can archive a course, but only if it's in published status (archived courses can't be edited or published, but they also don't show up in the marketplace)
 export const archiveCourse = mutation({
     args: {
         courseId: v.id("courses"),
@@ -221,6 +232,9 @@ export const archiveCourse = mutation({
     },
 });
 
+
+// --- unarchiveCourse ---
+// a teacher can unarchive a course, but only if it's in archived status (unarchived courses go back to draft status)
 export const unarchiveCourse = mutation({
     args: {
         courseId: v.id("courses"),
@@ -249,3 +263,79 @@ export const unarchiveCourse = mutation({
         });
     },
 });
+
+
+// --- deleteCourse ---
+// a teacher can delete a course, which deletes all related chapters, lessons, and enrollments via cascade deletes in the schema
+// rules: 
+// - only draft courses can be deleted (published courses can't be deleted, but they can be archived)
+// - only the course owner (userId) can delete, not co-instructors 
+export const deleteCourse = mutation({
+    args: {
+        courseId: v.id("courses"),
+    },
+    handler: async (ctx, args) => {
+        // 1. auth check
+        const authUserId = await getAuthUserId(ctx);
+        if (!authUserId) throw new Error("Unauthenticated");
+
+        // 2. does course exist?
+        const course = await ctx.db.get(args.courseId);
+        if (!course) throw new Error("Course not found.");
+
+        // 3. only course owner can delete, not co-instructors: check whether the user is also the owner
+        if (course.userId !== authUserId) {
+            throw new Error("Only the course owner can delete the course.");
+        }
+
+        // 4. only draft courses can be deleted
+        if (course.status !== "draft") {
+            throw new Error("Only draft courses can be deleted.");
+        }
+
+        // 5. delete course (cascade deletes related chapters, lessons, enrollments)
+        // get the chapters of the course using the args courseId
+        const chapters = await ctx.db
+            .query("chapters")
+            .withIndex("courseId", (q) => q.eq("courseId", args.courseId))
+            .collect();
+
+        // for each chapter, delete its lessons
+        for (const chapter of chapters) {
+            // delete all lessons with the chapterId of the chapter
+            const lessons = await ctx.db
+                .query("lessons")
+                .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+                .collect();
+            // delete each lesson
+            for (const lesson of lessons) {
+                await ctx.db.delete(lesson._id);
+            }
+            // delete the chapter
+            await ctx.db.delete(chapter._id);
+        }
+
+        // 6. delete course_instructors rows
+        const instructors = await ctx.db
+        .query("course_instructors")
+        .withIndex("courseId", (q)=> q.eq("courseId", args.courseId))
+        .collect();
+
+        for(const instructor of instructors){
+            await ctx.db.delete(instructor._id);
+        }
+
+        // 7. delete course_categories rows
+        const categories = await ctx.db
+        .query("course_categories")
+        .withIndex("courseId", (q)=> q.eq("courseId", args.courseId))
+        .collect();
+
+        for(const category of categories){
+            await ctx.db.delete(category._id);
+        }
+
+        // 8. delete the course
+        await ctx.db.delete(args.courseId);
+    }
+})
