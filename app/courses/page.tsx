@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState } from "react"
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
@@ -33,9 +34,20 @@ export default function CoursesPage() {
         difficultyLevel: selectedDifficulty,
     })
 
+
     return (
         <div className="min-h-screen bg-background">
             {/* header */}
+            <nav className="border-b bg-background sticky top-0 z-10">
+                <div className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8 flex items-center justify-between">
+                    <Link
+                        href="/student/dashboard"
+                        className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+                    >
+                        ← Dashboard
+                    </Link>
+                </div>
+            </nav>
             <div className="border-b">
                 <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
                     <h1 className="text-3xl font-bold">Browse Courses</h1>
@@ -76,8 +88,8 @@ export default function CoursesPage() {
                         <button
                             onClick={() => setSelectedCategory(undefined)}
                             className={`rounded-full border px-3 py-1 text-sm transition-colors ${selectedCategory === undefined
-                                    ? "bg-primary text-primary-foreground border-primary"
-                                    : "hover:bg-muted"
+                                ? "bg-primary text-primary-foreground border-primary"
+                                : "hover:bg-muted"
                                 }`}
                         >
                             All
@@ -91,8 +103,8 @@ export default function CoursesPage() {
                                     )
                                 }
                                 className={`rounded-full border px-3 py-1 text-sm transition-colors ${selectedCategory === cat._id
-                                        ? "bg-primary text-primary-foreground border-primary"
-                                        : "hover:bg-muted"
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "hover:bg-muted"
                                     }`}
                             >
                                 {cat.name}
