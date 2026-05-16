@@ -64,7 +64,7 @@ export function CourseCreateForm() {
         thumbnailUrl: thumbnailUrl.trim() || undefined,
         categoryIds: selectedCategories.length > 0 ? selectedCategories : undefined,
       })
-      router.push(`/teacher/courses/${courseId}/edit`)
+      router.push(`/teacher/courses`)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create course")
     } finally {
