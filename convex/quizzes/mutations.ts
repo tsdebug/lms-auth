@@ -263,3 +263,193 @@ export const submitQuiz = mutation({
         return { score, maxScore: quiz.totalScore, results }
     },
 })
+
+// --- updateQuiz ---
+// teachers can update quiz title or total score
+// linking : quizId ->> quiz → lesson → chapter ->> courseId for permissions
+export const updateQuiz = mutation({
+    args: {
+        quizId: v.id("quizzes"),
+        title: v.optional(v.string()),
+        description: v.optional(v.string()),
+        totalScore: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        // 1. auth check
+        const authUserId = await getAuthUserId(ctx);
+        if (!authUserId) throw new Error("Unauthenticated");
+
+        // get the quiz using the quizId
+        const quiz = await ctx.db.get(args.quizId);
+        if (!quiz) throw new Error("Quiz not found");
+
+        // if quiz found, find the lesson it belongs to
+        const lesson = await ctx.db.get(quiz.lessonId);
+        if (!lesson) throw new Error("Lesson not found");
+
+        // if lesson found, find the chapter the lesson belongs to
+        const chapter = await ctx.db.get(lesson.chapterId);
+        if (!chapter) throw new Error("Chapter not found");
+
+        // 2. role check - only course instructor can update quiz
+        await requireCourseRole(ctx.db, authUserId, chapter.courseId);
+
+        // 3. update quiz - only update fields that were provided (non-undefined)
+        const { quizId, ...fields } = args
+        await ctx.db.patch(args.quizId, {
+            ...fields,
+            updatedAt: Date.now(),
+        })
+    },
+})
+
+
+// --- updateQuestion ---
+// teachers can update question content or score
+// linking : questionId ->> question → quiz → lesson → chapter ->> courseId for permissions
+export const updateQuestion = mutation({
+    args: {
+        questionId: v.id("q_questions"),
+        content: v.optional(v.string()),
+        quesScore: v.optional(v.number()),
+    },
+    handler: async (ctx, args) => {
+        const authUserId = await getAuthUserId(ctx)
+        if (!authUserId) throw new Error("Unauthenticated")
+
+        const question = await ctx.db.get(args.questionId)
+        if (!question) throw new Error("Question not found")
+
+        const quiz = await ctx.db.get(question.quizId)
+        if (!quiz) throw new Error("Quiz not found")
+
+        const lesson = await ctx.db.get(quiz.lessonId)
+        if (!lesson) throw new Error("Lesson not found")
+
+        const chapter = await ctx.db.get(lesson.chapterId)
+        if (!chapter) throw new Error("Chapter not found")
+
+        await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+
+        const { questionId, ...fields } = args
+        await ctx.db.patch(args.questionId, {
+            ...fields,
+            updatedAt: Date.now(),
+        })
+    },
+})
+
+
+// --- deleteQuestion ---
+// teachers can delete a quiz question
+// linking : questionId ->> question → quiz → lesson → chapter ->> courseId for permissions
+export const deleteQuestion = mutation({
+    args: {
+        questionId: v.id("q_questions"),
+    },
+    handler: async (ctx, args) => {
+        // 1. auth check
+        const authUserId = await getAuthUserId(ctx)
+        if (!authUserId) throw new Error("Unauthenticated")
+
+        // 2. role check - only teachers can delete a quiz question
+        // find the question using the questionId
+        const question = await ctx.db.get(args.questionId)
+        if (!question) throw new Error("Question not found")
+
+        // if question found, find the quiz it belongs to 
+        const quiz = await ctx.db.get(question.quizId)
+        if (!quiz) throw new Error("Quiz not found")
+
+        // if quiz found, find the lesson it belongs to
+        const lesson = await ctx.db.get(quiz.lessonId)
+        if (!lesson) throw new Error("Lesson not found")
+
+        // if lesson found, find the course it belongs to find the courseId for role check
+        const chapter = await ctx.db.get(lesson.chapterId)
+        if (!chapter) throw new Error("Chapter not found")
+
+        await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+
+        // delete all answers for this question first
+        const answers = await ctx.db
+            .query("q_answers")
+            .withIndex("questionId", (q) => q.eq("questionId", args.questionId))
+            .collect()
+
+        for (const answer of answers) {
+            await ctx.db.delete(answer._id)
+        }
+
+        // then delete the question
+        await ctx.db.delete(args.questionId)
+    },
+})
+
+// --- updateAnswers --- 
+// teachers replace all answer options for a quiz question 
+// deletes existing answers and inserts fresh ones
+export const updateAnswers = mutation({
+    args: {
+        questionId: v.id("q_questions"),
+        answers: v.array(
+            v.object({
+                content: v.string(),
+                isCorrect: v.boolean(),
+            })
+        ),
+    },
+    handler: async (ctx, args) => {
+        // 1. auth check
+        const authUserId = await getAuthUserId(ctx)
+        if (!authUserId) throw new Error("Unauthenticated")
+
+        // 2. role check - only teachers can update quiz question answers
+        // find the question using the questionId
+        const question = await ctx.db.get(args.questionId)
+        if (!question) throw new Error("Question not found")
+
+        // if question found, find the quiz it belongs to
+        const quiz = await ctx.db.get(question.quizId)
+        if (!quiz) throw new Error("Quiz not found")
+
+        // if quiz found, find the lesson it belongs to
+        const lesson = await ctx.db.get(quiz.lessonId)
+        if (!lesson) throw new Error("Lesson not found")
+
+        // if lesson found, find the chapter the lesson belongs to, to get the courseId
+        const chapter = await ctx.db.get(lesson.chapterId)
+        if (!chapter) throw new Error("Chapter not found")
+
+        await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+
+        // validate exactly one correct answer
+        const correctAnswers = args.answers.filter((a) => a.isCorrect) // this statement is used for validation only, we will still insert all answers even if multiple are marked correct, frontend should prevent this but we check again here to be safe
+        if (correctAnswers.length === 0) {
+            throw new Error("Mark one answer as correct")
+        }
+        if (correctAnswers.length > 1) {
+            throw new Error("Only one answer can be correct")
+        }
+        // delete existing answers
+        const existing = await ctx.db
+            .query("q_answers")
+            .withIndex("questionId", (q) => q.eq("questionId", args.questionId))
+            .collect()
+
+        for (const answer of existing) {
+            await ctx.db.delete(answer._id)
+        }
+
+        // insert fresh answers
+        for (const answer of args.answers) {
+            await ctx.db.insert("q_answers", {
+                content: answer.content,
+                questionId: args.questionId,
+                isCorrect: answer.isCorrect,
+                createdAt: Date.now(),
+                updatedAt: Date.now(),
+            })
+        }
+    },
+})

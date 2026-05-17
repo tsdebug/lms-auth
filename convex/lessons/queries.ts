@@ -28,6 +28,33 @@ export const getLessonsByChapter = query({
   },
 })
 
+// getLessonById — teacher facing
+// no enrollment check — uses requireCourseRole instead
+// used by lesson editor page
+export const getLessonById = query({
+  args: {
+    lessonId: v.id("lessons"),
+  },
+  handler: async (ctx, args) => {
+    // 1. auth check
+    const authUserId = await getAuthUserId(ctx)
+    if (!authUserId) throw new Error("Unauthenticated")
+
+    // 2. get lesson
+    const lesson = await ctx.db.get(args.lessonId)
+    if (!lesson) throw new Error("Lesson not found")
+
+    // 3. get chapter to find courseId
+    const chapter = await ctx.db.get(lesson.chapterId)
+    if (!chapter) throw new Error("Chapter not found")
+
+    // 4. role check — must be instructor on this course
+    await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+
+    return lesson
+  },
+})
+
 // getLessonContent — student facing
 // returns lesson + completion status for the lesson viewer
 // uses enrollment check instead of requireCourseRole
