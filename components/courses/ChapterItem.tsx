@@ -35,7 +35,12 @@ interface Chapter {
   lessons: Lesson[]
 }
 
-export function ChapterItem({ chapter }: { chapter: Chapter }) {
+interface ChapterItemProps {
+  chapter: Chapter
+  courseId: Id<"courses">
+}
+
+export function ChapterItem({ chapter, courseId }: ChapterItemProps) {
   const createLesson = useMutation(api.lessons.mutations.createLesson)
   const deleteChapter = useMutation(api.chapters.mutations.deleteChapter)
   const [addingLesson, setAddingLesson] = useState(false)
@@ -104,7 +109,7 @@ export function ChapterItem({ chapter }: { chapter: Chapter }) {
           <p className="text-xs text-muted-foreground">No lessons yet.</p>
         )}
         {chapter.lessons.map((lesson) => (
-          <LessonItem key={lesson._id} lesson={lesson} />
+          <LessonItem key={lesson._id} lesson={lesson} courseId={courseId}/>
         ))}
       </div>
 

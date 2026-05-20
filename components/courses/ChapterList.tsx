@@ -52,7 +52,7 @@ export function ChapterList({ courseId, chapters }: ChapterListProps) {
       )}
 
       {chapters.map((chapter) => (
-        <ChapterItem key={chapter._id} chapter={chapter} />
+        <ChapterItem key={chapter._id} chapter={chapter} courseId={courseId} />
       ))}
 
       {/* add chapter form */}

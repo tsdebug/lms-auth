@@ -14,6 +14,8 @@ import {
 } from "lucide-react"
 import { toast } from "sonner"
 import { useState } from "react"
+import { QuizPlayer } from "@/components/quiz/QuizPlayer"
+
 
 export default function LessonViewerPage() {
     const params = useParams()
@@ -32,8 +34,11 @@ export default function LessonViewerPage() {
         courseId,
     })
 
+    const quiz = useQuery(api.quizzes.queries.getQuizByLesson, { lessonId })
+
     const markComplete = useMutation(api.lessons.mutations.markLessonComplete)
     const [marking, setMarking] = useState(false)
+    const [showQuiz, setShowQuiz] = useState(false)
 
     async function handleMarkComplete() {
         setMarking(true)
@@ -121,8 +126,8 @@ export default function LessonViewerPage() {
                                         )
                                     }
                                     className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${l._id === lessonId
-                                            ? "bg-primary/10 text-primary font-medium"
-                                            : "hover:bg-muted/50"
+                                        ? "bg-primary/10 text-primary font-medium"
+                                        : "hover:bg-muted/50"
                                         }`}
                                 >
                                     {/* completion icon */}
@@ -182,6 +187,23 @@ export default function LessonViewerPage() {
                             </p>
                         </div>
                     )}
+
+                    {/* quiz section */}
+                    <div className="mt-8 flex flex-col gap-4">
+                        {quiz === null || quiz === undefined ? null : (
+                            !showQuiz ? (
+                                <Button
+                                    variant="outline"
+                                    onClick={() => setShowQuiz(true)}
+                                    className="w-fit"
+                                >
+                                    Take Quiz
+                                </Button>
+                            ) : (
+                                <QuizPlayer lessonId={lessonId} />
+                            )
+                        )}
+                    </div>
                 </div>
 
                 {/* prev / next navigation */}

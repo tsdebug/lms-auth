@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
@@ -21,6 +22,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+import { QuizBuilder } from "@/components/quiz/QuizBuilder"
+
 interface Lesson {
   _id: Id<"lessons">
   title: string
@@ -28,7 +31,13 @@ interface Lesson {
   index: number
 }
 
-export function LessonItem({ lesson }: { lesson: Lesson }) {
+interface LessonItemProps {
+  lesson: Lesson
+  courseId: Id<"courses">
+}
+
+export function LessonItem({ lesson, courseId }: LessonItemProps) {
+  const router = useRouter()
   const deleteLesson = useMutation(api.lessons.mutations.deleteLesson)
   const updateLesson = useMutation(api.lessons.mutations.updateLesson)
 
@@ -71,9 +80,15 @@ export function LessonItem({ lesson }: { lesson: Lesson }) {
         className="flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-muted/50 rounded-t-md"
         onClick={() => setExpanded(!expanded)}
       >
-        <div className="flex items-center gap-2 text-sm flex-1">
+        <div
+          className="flex items-center gap-2 text-sm flex-1 cursor-pointer"
+          onClick={(e) => {
+            e.stopPropagation()
+            router.push(`/teacher/courses/${courseId}/lessons/${lesson._id}`)
+          }}
+        >
           <FileTextIcon className="size-3.5 text-muted-foreground shrink-0" />
-          <span className="font-medium">{lesson.title}</span>
+          <span className="font-medium hover:underline">{lesson.title}</span>
           {!expanded && lesson.description && (
             <span className="text-xs text-muted-foreground truncate max-w-[200px]">
               — {lesson.description}
@@ -160,6 +175,10 @@ export function LessonItem({ lesson }: { lesson: Lesson }) {
             <Button size="sm" onClick={handleSave} disabled={saving}>
               {saving ? "Saving..." : "Save"}
             </Button>
+          </div>
+
+          <div className="border-t pt-3">
+            <QuizBuilder lessonId={lesson._id} />
           </div>
         </div>
       )}
