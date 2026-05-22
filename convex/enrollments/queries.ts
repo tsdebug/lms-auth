@@ -31,12 +31,17 @@ export const getEnrollmentsByStudent = query({
 
         return {
           id: enrollment._id,
+          courseId: enrollment.courseId,
           courseTitle: course.title,
           difficultyLevel: course.difficultyLevel,
           enrollmentStatus: enrollment.status,
           instructorName: instructor
             ? `${instructor.fName ?? ""} ${instructor.lName ?? ""}`.trim()
             : "Unknown",
+          // progress fields: computed elsewhere later; provide safe defaults here
+          progressPercent: 0,
+          completedLessons: 0,
+          totalLessons: 0,
         }
       })
     )

@@ -1,22 +1,46 @@
 "use client"
 
+// purpose: defines the columns for the student enrolled courses table
+// used by: StudentCoursesTable.tsx which passes these to DataTable
+// EACH COLUMN maps to a field in StudentCourseRow type
+
 import { ColumnDef } from "@tanstack/react-table"
+import { useRouter } from "next/navigation"
 
 export type StudentCourseRow = {
   id: string
+  courseId: string           // needed for navigation to course detail page
   courseTitle: string
   enrollmentStatus: "active" | "completed" | "dropped"
   instructorName: string
   difficultyLevel: string | undefined
+  progressPercent: number    // 0-100
+  completedLessons: number
+  totalLessons: number
+}
+
+// CourseTitleCell — separate component because useRouter is a hook
+// hooks cannot be called inside plain column cell functions
+// must be a proper React component to use hooks
+function CourseTitleCell({ row }: { row: StudentCourseRow }) {
+  const router = useRouter()
+  return (
+    <button
+      className="font-medium text-left hover:underline text-foreground"
+      // clicking goes to course detail page where student picks a lesson
+      onClick={() => router.push(`/courses/${row.courseId}`)}
+    >
+      {row.courseTitle}
+    </button>
+  )
 }
 
 export const studentColumns: ColumnDef<StudentCourseRow>[] = [
   {
     accessorKey: "courseTitle",
     header: "Course",
-    cell: ({ row }) => (
-      <span className="font-medium">{row.original.courseTitle}</span>
-    ),
+    // CourseTitleCell handles click -> navigation
+    cell: ({ row }) => <CourseTitleCell row={row.original} />,
   },
   {
     accessorKey: "enrollmentStatus",
@@ -39,15 +63,39 @@ export const studentColumns: ColumnDef<StudentCourseRow>[] = [
   {
     accessorKey: "instructorName",
     header: "Instructor",
-    cell: ({ row }) => <span>{row.original.instructorName}</span>,
+    cell: ({ row }) => (
+      <span className="text-sm">{row.original.instructorName}</span>
+    ),
   },
   {
     accessorKey: "difficultyLevel",
     header: "Difficulty",
     cell: ({ row }) => (
-      <span className="capitalize">
+      <span className="capitalize text-sm">
         {row.original.difficultyLevel ?? "—"}
       </span>
     ),
+  },
+  {
+    accessorKey: "progressPercent",
+    header: "Progress",
+    cell: ({ row }) => {
+      const { progressPercent, completedLessons, totalLessons } = row.original
+      return (
+        <div className="flex flex-col gap-1 min-w-[120px]">
+          {/* progress bar — width driven by progressPercent value */}
+          <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+            <div
+              className="h-full bg-primary rounded-full transition-all"
+              style={{ width: `${progressPercent}%` }}
+            />
+          </div>
+          {/* numeric label */}
+          <span className="text-xs text-muted-foreground">
+            {completedLessons}/{totalLessons} · {progressPercent}%
+          </span>
+        </div>
+      )
+    },
   },
 ]
