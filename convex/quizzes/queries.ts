@@ -13,7 +13,7 @@ export const getQuizByLesson = query({
     handler: async (ctx, args) => {
 
         // 1. Auth check
-        const authUserId = getAuthUserId(ctx);
+        const authUserId = await getAuthUserId(ctx);
         if (!authUserId) throw new Error("Unauthenticated");
 
         // 2. find quiz attached to this lesson
