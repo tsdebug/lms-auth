@@ -66,3 +66,38 @@ export async function requireEnrollment(
         throw new Error("Unauthorized: not enrolled in this course")
     }
 }
+
+export async function requireGradingPermission(
+    db: DatabaseReader,
+    userId: Id<"users">,
+    courseId: Id<"courses">
+): Promise<void> {
+    // path 1 — course instructor
+    const instructor = await db
+        .query("course_instructors")
+        .withIndex("courseId_userId", (q) =>
+            q.eq("courseId", courseId).eq("userId", userId)
+        )
+        .first()
+
+    if (instructor) return // they're an instructor, done
+
+    // path 2 — platform evaluator role
+    const evaluatorRole = await db
+        .query("roles")
+        .withIndex("name", (q) => q.eq("name", "evaluator"))
+        .first()
+
+    if (evaluatorRole) {
+        const hasRole = await db
+            .query("user_roles")
+            .withIndex("userId_roleId", (q) =>
+                q.eq("userId", userId).eq("roleId", evaluatorRole._id)
+            )
+            .first()
+
+        if (hasRole) return // they're an evaluator, done
+    }
+
+    throw new Error("Unauthorized") // neither
+}
