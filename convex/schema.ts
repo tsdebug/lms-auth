@@ -152,6 +152,9 @@ export default defineSchema({
     title: v.string(),
     lessonId: v.id("lessons"),
     totalScore: v.number(),
+    // minimum score required to be considered "passed" for this quiz
+    // optional so older quizzes without the field remain valid
+    passingScore: v.optional(v.number()),
     description: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),

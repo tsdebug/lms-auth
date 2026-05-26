@@ -14,6 +14,7 @@ export const createQuiz = mutation({
         title: v.string(),
         description: v.string(),
         totalScore: v.number(), // max possible score e.g. 100
+        passingScore: v.optional(v.number()), // optional minimum passing score; defaults to totalScore when omitted
     },
     handler: async (ctx, args) => {
 
@@ -40,12 +41,15 @@ export const createQuiz = mutation({
 
         if (existingQuiz) throw new Error("A quiz for this lesson already exists");
 
-        // 5. Create quiz
+        // 5. Create quiz (default passingScore to totalScore when not provided)
+        const passingScore = args.passingScore ?? args.totalScore
+
         return await ctx.db.insert("quizzes", {
             title: args.title,
             description: args.description,
             lessonId: args.lessonId,
             totalScore: args.totalScore,
+            passingScore,
             createdAt: Date.now(),
             updatedAt: Date.now(),
         })
@@ -273,6 +277,7 @@ export const updateQuiz = mutation({
         title: v.optional(v.string()),
         description: v.optional(v.string()),
         totalScore: v.optional(v.number()),
+        passingScore: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
         // 1. auth check
