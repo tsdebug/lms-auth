@@ -2,7 +2,8 @@ import { query } from "../_generated/server"
 import { v } from "convex/values"
 import { getAuthUserId } from "@convex-dev/auth/server"
 
-// getEnrollmentsByStudent - returns all enrollments for the currently authenticated student, enriched with course and instructor data
+// getEnrollmentsByStudent - returns all enrollments for the currently authenticated student,
+// enriched with course, instructor, and real progress data
 export const getEnrollmentsByStudent = query({
   args: {},
   handler: async (ctx) => {
@@ -19,8 +20,8 @@ export const getEnrollmentsByStudent = query({
       .withIndex("userId", (q) => q.eq("userId", authUserId))
       .collect()
 
-    // 3. enrich each enrollment with course and instructor data
-    const enriched = await Promise.all( // Promise.all because each enrichment is async - we want to do them in parallel
+    // 3. enrich each enrollment with course, instructor, and progress data
+    const enriched = await Promise.all(
       enrollments.map(async (enrollment) => {
         // get the course
         const course = await ctx.db.get(enrollment.courseId)
@@ -28,6 +29,48 @@ export const getEnrollmentsByStudent = query({
 
         // get the instructor (course owner)
         const instructor = await ctx.db.get(course.userId)
+
+        // --- compute real progress ---
+        // step 1: get all chapters for this course
+        const chapters = await ctx.db
+          .query("chapters")
+          .withIndex("courseId", (q) => q.eq("courseId", enrollment.courseId))
+          .collect()
+
+        // step 2: get all lessons across every chapter (run in parallel)
+        const lessonsByChapter = await Promise.all(
+          chapters.map((chapter) =>
+            ctx.db
+              .query("lessons")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .collect()
+          )
+        )
+
+        // flatten into one list of lesson IDs
+        const allLessons = lessonsByChapter.flat()
+        const totalLessons = allLessons.length
+
+        // step 3: count how many of those lessons this student has completed
+        // run all completion lookups in parallel
+        const completionChecks = await Promise.all(
+          allLessons.map((lesson) =>
+            ctx.db
+              .query("lesson_completions")
+              .withIndex("userId_lessonId", (q) =>
+                q.eq("userId", authUserId).eq("lessonId", lesson._id)
+              )
+              .first()
+          )
+        )
+
+        const completedLessons = completionChecks.filter(Boolean).length
+
+        // step 4: calculate percent (guard against divide-by-zero for empty courses)
+        const progressPercent =
+          totalLessons > 0
+            ? Math.round((completedLessons / totalLessons) * 100)
+            : 0
 
         return {
           id: enrollment._id,
@@ -38,10 +81,9 @@ export const getEnrollmentsByStudent = query({
           instructorName: instructor
             ? `${instructor.fName ?? ""} ${instructor.lName ?? ""}`.trim()
             : "Unknown",
-          // progress fields: computed elsewhere later; provide safe defaults here
-          progressPercent: 0,
-          completedLessons: 0,
-          totalLessons: 0,
+          progressPercent,
+          completedLessons,
+          totalLessons,
         }
       })
     )
