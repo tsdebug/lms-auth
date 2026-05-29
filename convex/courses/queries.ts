@@ -6,7 +6,6 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 // getCourses — public, paginated, filterable published course list
 export const getCourses = query({
   args: {
-    // pagination options for efficient pagination meaning we don't have to load and filter all courses in memory - instead we can paginate at the database level and only filter the current page in memory
     paginationOpts: paginationOptsValidator,
     categoryId: v.optional(v.id("categories")),
     tagId: v.optional(v.id("tags")),
@@ -48,8 +47,7 @@ export const getCourses = query({
   },
 });
 
-// getPublishedCourses — simple version without pagination
-// used for public courses page 
+// getPublishedCourses — simple version without pagination, intentionally public
 export const getPublishedCourses = query({
   args: {
     categoryId: v.optional(v.id("categories")),
@@ -62,47 +60,34 @@ export const getPublishedCourses = query({
     ),
   },
   handler: async (ctx, args) => {
-    // get all published courses
     let courses = await ctx.db
       .query("courses")
-      .withIndex("status", (q) => q.eq("status", "published")) // only published courses
+      .withIndex("status", (q) => q.eq("status", "published"))
       .collect()
 
-    // filter by difficulty if provided
     if (args.difficultyLevel) {
-      courses = courses.filter(
-        (c) => c.difficultyLevel === args.difficultyLevel
-      )
+      courses = courses.filter((c) => c.difficultyLevel === args.difficultyLevel)
     }
 
-    // filter by category if provided
     if (args.categoryId) {
       const courseCategories = await ctx.db
         .query("course_categories")
-        .withIndex("categoryId", (q) =>
-          q.eq("categoryId", args.categoryId!)
-        )
+        .withIndex("categoryId", (q) => q.eq("categoryId", args.categoryId!))
         .collect()
       const courseIds = courseCategories.map((cc) => cc.courseId)
       courses = courses.filter((c) => courseIds.includes(c._id))
     }
 
-    // enrich each course with instructor name and categories - enrich keyword id used because we are adding additional data to the course object
     const enriched = await Promise.all(
       courses.map(async (course) => {
-        // get instructor name from users table
         const instructor = await ctx.db.get(course.userId)
-
-        // get categories for this course
         const courseCategories = await ctx.db
           .query("course_categories")
           .withIndex("courseId", (q) => q.eq("courseId", course._id))
           .collect()
-
         const categories = await Promise.all(
           courseCategories.map((cc) => ctx.db.get(cc.categoryId))
         )
-
         return {
           ...course,
           instructorName: instructor
@@ -118,7 +103,6 @@ export const getPublishedCourses = query({
 })
 
 // getCoursesByTeacher — private, returns teacher's own courses
-// enriched with their role on each course and student count
 export const getCoursesByTeacher = query({
   args: {},
   handler: async (ctx) => {
@@ -132,7 +116,6 @@ export const getCoursesByTeacher = query({
 
     const enrichedCourses = await Promise.all(
       courses.map(async (course) => {
-        // get this teacher's role on this specific course
         const instructorRow = await ctx.db
           .query("course_instructors")
           .withIndex("courseId_userId", (q) =>
@@ -140,7 +123,6 @@ export const getCoursesByTeacher = query({
           )
           .first();
 
-        // count enrolled students for this course
         const enrollments = await ctx.db
           .query("enrollments")
           .withIndex("courseId", (q) => q.eq("courseId", course._id))
@@ -158,7 +140,10 @@ export const getCoursesByTeacher = query({
   },
 });
 
-// getCourseDetails — public for published courses, owner sees draft too
+// getCourseDetails — FIXED
+// published courses: visible to anyone (public detail page)
+// draft/archived courses: only visible to the course instructor
+// previously returned draft courses to anyone who knew the courseId
 export const getCourseDetails = query({
   args: {
     courseId: v.id("courses"),
@@ -166,6 +151,24 @@ export const getCourseDetails = query({
   handler: async (ctx, args) => {
     const course = await ctx.db.get(args.courseId);
     if (!course) throw new Error("Course not found");
+
+    // if course is not published, only the owner/instructor may see it
+    if (course.status !== "published") {
+      const authUserId = await getAuthUserId(ctx);
+      if (!authUserId) throw new Error("Not found"); // don't reveal draft exists
+
+      // check if caller is an instructor on this course
+      const isInstructor = await ctx.db
+        .query("course_instructors")
+        .withIndex("courseId_userId", (q) =>
+          q.eq("courseId", args.courseId).eq("userId", authUserId)
+        )
+        .first();
+
+      // throw "Not found" rather than "Unauthorized" to avoid leaking
+      // that the course exists at all to random users
+      if (!isInstructor) throw new Error("Not found");
+    }
 
     const chapters = await ctx.db
       .query("chapters")
@@ -187,7 +190,6 @@ export const getCourseDetails = query({
 });
 
 // getCategories — public, no auth needed
-// used in course forms and public courses page for filtering
 export const getCategories = query({
   args: {},
   handler: async (ctx) => {
