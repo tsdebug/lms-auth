@@ -67,6 +67,7 @@ export async function requireEnrollment(
     }
 }
 
+// checks if user can grade quizzes for a course — either course instructor or platform evaluator role
 export async function requireGradingPermission(
     db: DatabaseReader,
     userId: Id<"users">,

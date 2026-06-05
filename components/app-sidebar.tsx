@@ -3,6 +3,8 @@
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 
+import { FileQuestionIcon, ClipboardListIcon } from "lucide-react"
+
 import * as React from "react"
 import { NavMain } from "@/components/nav-main"
 import { NavUser } from "@/components/nav-user"
@@ -30,6 +32,8 @@ import {
 const teacherNav = [
   { title: "Dashboard", url: "/teacher/dashboard", icon: <LayoutDashboard /> },
   { title: "My Courses", url: "/teacher/courses", icon: <BookOpen /> },
+  { title: "Quizzes", url: "/teacher/quizzes", icon: <FileQuestionIcon /> },
+  { title: "Assignments", url: "/teacher/assignments", icon: <ClipboardListIcon /> },
   { title: "Students", url: "/teacher/students", icon: <Users /> },
   { title: "Settings", url: "/teacher/settings", icon: <Settings /> },
 ]
@@ -38,6 +42,8 @@ const studentNav = [
   { title: "Dashboard", url: "/student/dashboard", icon: <LayoutDashboard /> },
   { title: "Browse Courses", url: "/courses", icon: <SearchIcon /> },
   { title: "My Courses", url: "/student/courses", icon: <BookOpen /> },
+  { title: "Quizzes", url: "/student/quizzes", icon: <FileQuestionIcon /> },
+  { title: "Assignments", url: "/student/assignments", icon: <ClipboardListIcon /> },
   { title: "Progress", url: "/student/progress", icon: <TrendingUp /> },
   { title: "Certificates", url: "/student/certificates", icon: <Award /> },
 ]

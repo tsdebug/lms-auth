@@ -185,3 +185,240 @@ export const getQuizByLesson = query({
     return { ...quiz, questions: questionsWithAnswers };
   },
 });
+
+
+// --- getQuizByChapterForTeacher ---
+// same as getQuizForTeacher but for chapter-level quizzes
+export const getQuizByChapterForTeacher = query({
+  args: { chapterId: v.id("chapters") },
+  handler: async (ctx, args) => {
+    const authUserId = await getAuthUserId(ctx)
+    if (!authUserId) throw new Error("Unauthenticated")
+
+    const chapter = await ctx.db.get(args.chapterId)
+    if (!chapter) throw new Error("Chapter not found")
+
+    await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+
+    const quiz = await ctx.db
+      .query("quizzes")
+      .withIndex("chapterId", (q) => q.eq("chapterId", args.chapterId))
+      .first()
+    if (!quiz) return null
+
+    const questions = await ctx.db
+      .query("q_questions")
+      .withIndex("quizId", (q) => q.eq("quizId", quiz._id))
+      .collect()
+    questions.sort((a, b) => a.index - b.index)
+
+    const questionsWithAnswers = await Promise.all(
+      questions.map(async (q) => {
+        const answers = await ctx.db
+          .query("q_answers")
+          .withIndex("questionId", (qa) => qa.eq("questionId", q._id))
+          .collect()
+        return { ...q, answers }
+      })
+    )
+    return { ...quiz, questions: questionsWithAnswers }
+  },
+})
+
+// --- getAllQuizzesForTeacher --- 
+// lists all quizzes across all teacher's courses
+// used on /teacher/quizzes list page
+export const getAllQuizzesForTeacher = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUserId = await getAuthUserId(ctx)
+    if (!authUserId) throw new Error("Unauthenticated")
+
+    // get all courses this teacher owns
+    const courses = await ctx.db
+      .query("courses")
+      .withIndex("userId", (q) => q.eq("userId", authUserId))
+      .collect()
+
+    // for each course get chapters → lessons → quizzes
+    const result = await Promise.all(
+      courses.map(async (course) => {
+        const chapters = await ctx.db
+          .query("chapters")
+          .withIndex("courseId", (q) => q.eq("courseId", course._id))
+          .collect()
+
+        const quizzes = await Promise.all(
+          chapters.map(async (chapter) => {
+            const chapterQuiz = await ctx.db
+              .query("quizzes")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .first()
+
+            const lessons = await ctx.db
+              .query("lessons")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .collect()
+
+            const lessonQuizzes = await Promise.all(
+              lessons.map(async (lesson) => {
+                const quiz = await ctx.db
+                  .query("quizzes")
+                  .withIndex("lessonId", (q) => q.eq("lessonId", lesson._id))
+                  .first()
+                if (!quiz) return null
+                return {
+                  ...quiz,
+                  lessonId: quiz.lessonId ?? null,
+                  // label for display: "Lesson: intro to python"
+                  belongsTo: `Lesson: ${lesson.title}`,
+                  chapterTitle: chapter.title,
+                  courseTitle: course.title,
+                  courseId: course._id,
+                }
+              })
+            )
+
+            const results = lessonQuizzes.filter(Boolean) as any[]
+            if (chapterQuiz) {
+              results.unshift({
+                ...chapterQuiz,
+                lessonId: null,
+                belongsTo: `Chapter: ${chapter.title}`,
+                chapterTitle: chapter.title,
+                courseTitle: course.title,
+                courseId: course._id,
+              })
+            }
+            return results
+          })
+        )
+        return quizzes.flat()
+      })
+    )
+    return result.flat()
+  },
+})
+
+// --- getAllQuizzesForStudent --- 
+// all quizzes in courses the student is enrolled in
+// grouped by course for the student quizzes page
+export const getAllQuizzesForStudent = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUserId = await getAuthUserId(ctx)
+    if (!authUserId) throw new Error("Unauthenticated")
+
+    const enrollments = await ctx.db
+      .query("enrollments")
+      .withIndex("userId", (q) => q.eq("userId", authUserId))
+      .collect()
+
+    const grouped = await Promise.all(
+      enrollments.map(async (enrollment) => {
+        const course = await ctx.db.get(enrollment.courseId)
+        if (!course) return null
+
+        const chapters = await ctx.db
+          .query("chapters")
+          .withIndex("courseId", (q) => q.eq("courseId", enrollment.courseId))
+          .collect()
+        chapters.sort((a, b) => a.index - b.index)
+
+        const quizzes = await Promise.all(
+          chapters.map(async (chapter) => {
+            const items: any[] = []
+
+            // chapter-level quiz
+            const chapterQuiz = await ctx.db
+              .query("quizzes")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .first()
+            if (chapterQuiz) {
+              // check if student already attempted
+              const attempt = await ctx.db
+                .query("quiz_attempts")
+                .withIndex("userId_quizId", (q) =>
+                  q.eq("userId", authUserId).eq("quizId", chapterQuiz._id)
+                )
+                .first()
+              items.push({
+                ...chapterQuiz,
+                belongsTo: `Chapter: ${chapter.title}`,
+                chapterTitle: chapter.title,
+                attempted: !!attempt?.completedAt,
+                score: attempt?.score ?? null,
+                maxScore: attempt?.maxScore ?? null,
+              })
+            }
+
+            // lesson-level quizzes
+            const lessons = await ctx.db
+              .query("lessons")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .collect()
+            lessons.sort((a, b) => a.index - b.index)
+
+            for (const lesson of lessons) {
+              const quiz = await ctx.db
+                .query("quizzes")
+                .withIndex("lessonId", (q) => q.eq("lessonId", lesson._id))
+                .first()
+              if (!quiz) continue
+              const attempt = await ctx.db
+                .query("quiz_attempts")
+                .withIndex("userId_quizId", (q) =>
+                  q.eq("userId", authUserId).eq("quizId", quiz._id)
+                )
+                .first()
+              items.push({
+                ...quiz,
+                belongsTo: `Lesson: ${lesson.title}`,
+                chapterTitle: chapter.title,
+                lessonId: lesson._id,
+                attempted: !!attempt?.completedAt,
+                score: attempt?.score ?? null,
+                maxScore: attempt?.maxScore ?? null,
+              })
+            }
+            return items
+          })
+        )
+
+        return {
+          courseId: enrollment.courseId,
+          courseTitle: course.title,
+          quizzes: quizzes.flat(),
+        }
+      })
+    )
+
+    return grouped.filter(Boolean)
+  },
+})
+
+// getQuizById — fetch a single quiz by its ID, for the standalone editor page
+export const getQuizById = query({
+  args: { quizId: v.id("quizzes") },
+  handler: async (ctx, args) => {
+    const authUserId = await getAuthUserId(ctx)
+    if (!authUserId) throw new Error("Unauthenticated")
+
+    const quiz = await ctx.db.get(args.quizId)
+    if (!quiz) throw new Error("Quiz not found")
+
+    // resolve courseId and check role
+    let courseId
+    if (quiz.lessonId) {
+      const lesson = await ctx.db.get(quiz.lessonId)
+      const chapter = await ctx.db.get(lesson!.chapterId)
+      courseId = chapter!.courseId
+    } else {
+      const chapter = await ctx.db.get(quiz.chapterId!)
+      courseId = chapter!.courseId
+    }
+    await requireCourseRole(ctx.db, authUserId, courseId)
+
+    return quiz
+  },
+})

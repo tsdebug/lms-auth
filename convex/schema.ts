@@ -147,19 +147,21 @@ export default defineSchema({
   }).index("lessonId", ["lessonId"]),
 
   // ─── Quizzes ─────────────────────────────────────────────────────────────
-  // Unchanged
+  // CHANGED: lessonId made optional, chapterId added.
+
   quizzes: defineTable({
     title: v.string(),
-    lessonId: v.id("lessons"),
+    lessonId: v.optional(v.id("lessons")),   // was required, now optional
+    chapterId: v.optional(v.id("chapters")), // new — for chapter-level quizzes
     totalScore: v.number(),
-    // minimum score required to be considered "passed" for this quiz
-    // optional so older quizzes without the field remain valid
     passingScore: v.optional(v.number()),
     description: v.optional(v.string()),
     createdAt: v.number(),
     updatedAt: v.number(),
     deletedAt: v.optional(v.number()),
-  }).index("lessonId", ["lessonId"]),
+  })
+    .index("lessonId", ["lessonId"])
+    .index("chapterId", ["chapterId"]), // new index
 
   // ─── Quiz Questions ───────────────────────────────────────────────────────
   // Unchanged

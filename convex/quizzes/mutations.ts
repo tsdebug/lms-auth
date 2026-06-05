@@ -2,52 +2,104 @@ import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireCourseRole, requireEnrollment } from "../lib/authorization";
+import { Id } from "../_generated/dataModel";
+
+// helper - resolves courseId from lessonId or chapterId (copied from assignments patterns)
+async function resolveCourseId(
+    db: any,
+    lessonId?: string,
+    chapterId?: string
+): Promise<string> {
+    if (lessonId) {
+        const lesson = await db.get(lessonId)
+        if (!lesson) {
+            throw new Error("Lesson not found")
+        }
+        const chapter = await db.get(lesson.chapterId)
+        if (!chapter) {
+            throw new Error("Chapter not found")
+        }
+        return chapter.courseId
+    }
+    if (chapterId) {
+        const chapter = await db.get(chapterId)
+        if (!chapter) {
+            throw new Error("Chapter not found")
+        }
+        return chapter.courseId;
+    }
+    throw new Error("Either lessonId or chapterId must be provided")
+}
 
 // --- createQuiz ---
 // teacher attaches one quiz to a lesson
 // linking: lessonId links quiz to lesson to check permissions we follow: lesson → chapter → courseId
 // RULE: one quiz per lesson only
+// convex/quizzes/mutations.ts — only createQuiz changes, rest stays same
+
 export const createQuiz = mutation({
-    // args = data that comes FROM OUTSIDE (from the frontend calling this function)
     args: {
-        lessonId: v.id("lessons"), // which lesson this quiz belongs to
+        // one of these must be provided — enforced below
+        lessonId: v.optional(v.id("lessons")),
+        chapterId: v.optional(v.id("chapters")),
         title: v.string(),
         description: v.string(),
-        totalScore: v.number(), // max possible score e.g. 100
-        passingScore: v.optional(v.number()), // optional minimum passing score; defaults to totalScore when omitted
+        totalScore: v.number(),
+        passingScore: v.optional(v.number()),
     },
     handler: async (ctx, args) => {
+        const authUserId = await getAuthUserId(ctx)
+        if (!authUserId) throw new Error("Unauthenticated")
 
-        // 1. Auth check
-        const authUserId = await getAuthUserId(ctx);
-        if (!authUserId) throw new Error("Unauthenticated");
+        // must have at least one anchor
+        if (!args.lessonId && !args.chapterId) {
+            throw new Error("Quiz must be attached to a lesson or a chapter")
+        }
 
-        // 2. Follow the chain to get courseId for role check
-        // quiz live on lesson, lesson live on chapter, chapter live on course (quiz ->> lesson → chapter ->> courseId)
-        const lesson = await ctx.db.get(args.lessonId);
-        if (!lesson) throw new Error("Lesson not found");
+        // resolve courseId to check instructor role
+        // follow the chain: lesson → chapter → courseId
+        // OR directly: chapter → courseId
+        let courseId
+        if (args.lessonId) {
+            const lesson = await ctx.db.get(args.lessonId)
+            if (!lesson) throw new Error("Lesson not found")
 
-        const chapter = await ctx.db.get(lesson.chapterId);
-        if (!chapter) throw new Error("Chapter not found");
+            const chapter = await ctx.db.get(lesson.chapterId)
+            if (!chapter) throw new Error("Chapter not found")
 
-        // 3. Role check - only course instructor can create quiz
-        await requireCourseRole(ctx.db, authUserId, chapter.courseId);
+            courseId = chapter.courseId
+        } else {
+            const chapter = await ctx.db.get(args.chapterId!)
+            if (!chapter) throw new Error("Chapter not found")
+                
+            courseId = chapter.courseId
+        }
 
-        // 4. One quiz per lesson rule check
-        const existingQuiz = await ctx.db
-            .query("quizzes")
-            .withIndex("lessonId", (q) => q.eq("lessonId", args.lessonId))
-            .first();
+        await requireCourseRole(ctx.db, authUserId, courseId)
 
-        if (existingQuiz) throw new Error("A quiz for this lesson already exists");
+        // one quiz per lesson/chapter
+        if (args.lessonId) {
+            const existing = await ctx.db
+                .query("quizzes")
+                .withIndex("lessonId", (q) => q.eq("lessonId", args.lessonId))
+                .first()
+            if (existing) throw new Error("A quiz for this lesson already exists")
+        }
+        if (args.chapterId) {
+            const existing = await ctx.db
+                .query("quizzes")
+                .withIndex("chapterId", (q) => q.eq("chapterId", args.chapterId))
+                .first()
+            if (existing) throw new Error("A quiz for this chapter already exists")
+        }
 
-        // 5. Create quiz (default passingScore to totalScore when not provided)
         const passingScore = args.passingScore ?? args.totalScore
 
         return await ctx.db.insert("quizzes", {
             title: args.title,
             description: args.description,
             lessonId: args.lessonId,
+            chapterId: args.chapterId,
             totalScore: args.totalScore,
             passingScore,
             createdAt: Date.now(),
@@ -75,14 +127,9 @@ export const createQuestion = mutation({
         const quiz = await ctx.db.get(args.quizId);
         if (!quiz) throw new Error("Quiz not found");
 
-        const lesson = await ctx.db.get(quiz.lessonId);
-        if (!lesson) throw new Error("Lesson not found");
-
-        const chapter = await ctx.db.get(lesson.chapterId);
-        if (!chapter) throw new Error("Chapter not found");
-
-        // 3. Role check - only course instructor can create question
-        await requireCourseRole(ctx.db, authUserId, chapter.courseId);
+        // resolve courseId from quiz anchors and check role
+        const courseId = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
+        await requireCourseRole(ctx.db, authUserId, courseId as any);
 
         // 4. count existing questions to set display order index
         const existingQuestionsCount = await ctx.db
@@ -130,14 +177,9 @@ export const createAnswers = mutation({
         const quiz = await ctx.db.get(question.quizId);
         if (!quiz) throw new Error("Quiz not found");
 
-        const lesson = await ctx.db.get(quiz.lessonId);
-        if (!lesson) throw new Error("Lesson not found");
-
-        const chapter = await ctx.db.get(lesson.chapterId);
-        if (!chapter) throw new Error("Chapter not found");
-
-        // 3. Role check - only course instructor can create answer option
-        await requireCourseRole(ctx.db, authUserId, chapter.courseId);
+        // resolve courseId from quiz anchors and check role
+        const courseIdForAnswers = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
+        await requireCourseRole(ctx.db, authUserId, courseIdForAnswers as any);
 
         // 4. Validation: only one correct answer allowed
         const correctAnswersCount = args.answers.filter((ans) => ans.isCorrect).length;
@@ -188,14 +230,9 @@ export const submitQuiz = mutation({
         const quiz = await ctx.db.get(args.quizId);
         if (!quiz) throw new Error("Quiz not found");
 
-        const lesson = await ctx.db.get(quiz.lessonId);
-        if (!lesson) throw new Error("Lesson not found");
-
-        const chapter = await ctx.db.get(lesson.chapterId);
-        if (!chapter) throw new Error("Chapter not found");
-
-        // 3. Role check - only students can submit quiz
-        await requireEnrollment(ctx.db, authUserId, chapter.courseId);
+        // resolve courseId from quiz anchors and check enrollment
+        const courseIdForSubmit = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
+        await requireEnrollment(ctx.db, authUserId, courseIdForSubmit as any);
 
         // 4. Check if student already submitted (userId_quizId unique index)
         const existingAttempt = await ctx.db
@@ -288,16 +325,9 @@ export const updateQuiz = mutation({
         const quiz = await ctx.db.get(args.quizId);
         if (!quiz) throw new Error("Quiz not found");
 
-        // if quiz found, find the lesson it belongs to
-        const lesson = await ctx.db.get(quiz.lessonId);
-        if (!lesson) throw new Error("Lesson not found");
-
-        // if lesson found, find the chapter the lesson belongs to
-        const chapter = await ctx.db.get(lesson.chapterId);
-        if (!chapter) throw new Error("Chapter not found");
-
-        // 2. role check - only course instructor can update quiz
-        await requireCourseRole(ctx.db, authUserId, chapter.courseId);
+        // resolve courseId from quiz anchors and check role
+        const courseIdForUpdate = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
+        await requireCourseRole(ctx.db, authUserId, courseIdForUpdate as any);
 
         // 3. update quiz - only update fields that were provided (non-undefined)
         const { quizId, ...fields } = args
@@ -328,13 +358,8 @@ export const updateQuestion = mutation({
         const quiz = await ctx.db.get(question.quizId)
         if (!quiz) throw new Error("Quiz not found")
 
-        const lesson = await ctx.db.get(quiz.lessonId)
-        if (!lesson) throw new Error("Lesson not found")
-
-        const chapter = await ctx.db.get(lesson.chapterId)
-        if (!chapter) throw new Error("Chapter not found")
-
-        await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+        const courseIdForQuestion = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
+        await requireCourseRole(ctx.db, authUserId, courseIdForQuestion as any)
 
         const { questionId, ...fields } = args
         await ctx.db.patch(args.questionId, {
@@ -366,15 +391,8 @@ export const deleteQuestion = mutation({
         const quiz = await ctx.db.get(question.quizId)
         if (!quiz) throw new Error("Quiz not found")
 
-        // if quiz found, find the lesson it belongs to
-        const lesson = await ctx.db.get(quiz.lessonId)
-        if (!lesson) throw new Error("Lesson not found")
-
-        // if lesson found, find the course it belongs to find the courseId for role check
-        const chapter = await ctx.db.get(lesson.chapterId)
-        if (!chapter) throw new Error("Chapter not found")
-
-        await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+        const courseIdForDelete = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
+        await requireCourseRole(ctx.db, authUserId, courseIdForDelete as any)
 
         // delete all answers for this question first
         const answers = await ctx.db
@@ -418,15 +436,9 @@ export const updateAnswers = mutation({
         const quiz = await ctx.db.get(question.quizId)
         if (!quiz) throw new Error("Quiz not found")
 
-        // if quiz found, find the lesson it belongs to
-        const lesson = await ctx.db.get(quiz.lessonId)
-        if (!lesson) throw new Error("Lesson not found")
-
-        // if lesson found, find the chapter the lesson belongs to, to get the courseId
-        const chapter = await ctx.db.get(lesson.chapterId)
-        if (!chapter) throw new Error("Chapter not found")
-
-        await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+        // resolve courseId from quiz anchors and check role
+        const courseIdForAnswersUpdate = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
+        await requireCourseRole(ctx.db, authUserId, courseIdForAnswersUpdate as any)
 
         // validate exactly one correct answer
         const correctAnswers = args.answers.filter((a) => a.isCorrect) // this statement is used for validation only, we will still insert all answers even if multiple are marked correct, frontend should prevent this but we check again here to be safe
@@ -456,5 +468,47 @@ export const updateAnswers = mutation({
                 updatedAt: Date.now(),
             })
         }
+    },
+})
+
+// --- deleteQuiz ---
+// deletes a quiz and all its questions and answers
+export const deleteQuiz = mutation({
+    args: { quizId: v.id("quizzes") },
+    handler: async (ctx, args) => {
+        const authUserId = await getAuthUserId(ctx)
+        if (!authUserId) throw new Error("Unauthenticated")
+
+        const quiz = await ctx.db.get(args.quizId)
+        if (!quiz) throw new Error("Quiz not found")
+
+        // resolve courseId for role check
+        let courseId
+        if (quiz.lessonId) {
+            const lesson = await ctx.db.get(quiz.lessonId)
+            const chapter = await ctx.db.get(lesson!.chapterId)
+            courseId = chapter!.courseId
+        } else {
+            const chapter = await ctx.db.get(quiz.chapterId!)
+            courseId = chapter!.courseId
+        }
+        await requireCourseRole(ctx.db, authUserId, courseId)
+
+        // delete all questions and their answers first
+        const questions = await ctx.db
+            .query("q_questions")
+            .withIndex("quizId", (q) => q.eq("quizId", args.quizId))
+            .collect()
+
+        for (const question of questions) {
+            const answers = await ctx.db
+                .query("q_answers")
+                .withIndex("questionId", (q) => q.eq("questionId", question._id))
+                .collect()
+            for (const answer of answers) await ctx.db.delete(answer._id)
+            await ctx.db.delete(question._id)
+        }
+
+        await ctx.db.delete(args.quizId)
     },
 })

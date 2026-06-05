@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/alert-dialog"
 
 interface QuizBuilderProps {
-  lessonId: Id<"lessons">
+  lessonId?: Id<"lessons">
+  chapterId?: Id<"chapters">
 }
 
 function AnswerForm({
@@ -328,11 +329,14 @@ function QuestionItem({
   )
 }
 
-export function QuizBuilder({ lessonId }: QuizBuilderProps) {
+export function QuizBuilder({ lessonId, chapterId }: QuizBuilderProps) {
   // CHANGED: was api.quizzes.queries.getQuizByLesson
   // now uses getQuizForTeacher which requires instructor role and includes isCorrect
-  const quiz = useQuery(api.quizzes.queries.getQuizForTeacher, { lessonId })
+  const quiz = useQuery(api.quizzes.queries.getQuizForTeacher, lessonId ? { lessonId } : "skip")
 
+  const chapterQuiz = useQuery(api.quizzes.queries.getQuizByChapterForTeacher, chapterId ? { chapterId } : "skip")
+
+  const resolvedQuiz = quiz ?? chapterQuiz
   const createQuiz = useMutation(api.quizzes.mutations.createQuiz)
   const updateQuiz = useMutation(api.quizzes.mutations.updateQuiz)
   const createQuestion = useMutation(api.quizzes.mutations.createQuestion)
