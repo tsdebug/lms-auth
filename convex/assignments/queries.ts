@@ -211,3 +211,205 @@ export const getSubmissionsByAssignment = query({
         })
     },
 })
+
+// getAllAssignmentsForTeacher — lists all assignments across teacher's courses
+export const getAllAssignmentsForTeacher = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUserId = await getAuthUserId(ctx)
+    if (!authUserId) throw new Error("Unauthenticated")
+
+    const courses = await ctx.db
+      .query("courses")
+      .withIndex("userId", (q) => q.eq("userId", authUserId))
+      .collect()
+
+    const result = await Promise.all(
+      courses.map(async (course) => {
+        const chapters = await ctx.db
+          .query("chapters")
+          .withIndex("courseId", (q) => q.eq("courseId", course._id))
+          .collect()
+
+        const assignments = await Promise.all(
+          chapters.map(async (chapter) => {
+            const items: any[] = []
+
+            // chapter-level assignments
+            const chapterAssignments = await ctx.db
+              .query("assignments")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .collect()
+            for (const a of chapterAssignments.filter((a) => !a.deletedAt)) {
+              // count submissions for this assignment
+              const subs = await ctx.db
+                .query("submissions")
+                .withIndex("assignmentId", (q) => q.eq("assignmentId", a._id))
+                .collect()
+              items.push({
+                ...a,
+                lessonId: null,
+                belongsTo: `Chapter: ${chapter.title}`,
+                chapterTitle: chapter.title,
+                courseTitle: course.title,
+                courseId: course._id,
+                submissionCount: subs.length,
+              })
+            }
+
+            // lesson-level assignments
+            const lessons = await ctx.db
+              .query("lessons")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .collect()
+            for (const lesson of lessons) {
+              const lessonAssignments = await ctx.db
+                .query("assignments")
+                .withIndex("lessonId", (q) => q.eq("lessonId", lesson._id))
+                .collect()
+              for (const a of lessonAssignments.filter((a) => !a.deletedAt)) {
+                const subs = await ctx.db
+                  .query("submissions")
+                  .withIndex("assignmentId", (q) => q.eq("assignmentId", a._id))
+                  .collect()
+                items.push({
+                  ...a,
+                  lessonId: a.lessonId ?? null,
+                  belongsTo: `Lesson: ${lesson.title}`,
+                  chapterTitle: chapter.title,
+                  courseTitle: course.title,
+                  courseId: course._id,
+                  submissionCount: subs.length,
+                })
+              }
+            }
+            return items
+          })
+        )
+        return assignments.flat()
+      })
+    )
+    return result.flat()
+  },
+})
+
+// --- getAllAssignmentsForStudent --- 
+// all assignments grouped by course
+export const getAllAssignmentsForStudent = query({
+  args: {},
+  handler: async (ctx) => {
+    const authUserId = await getAuthUserId(ctx)
+    if (!authUserId) throw new Error("Unauthenticated")
+
+    const enrollments = await ctx.db
+      .query("enrollments")
+      .withIndex("userId", (q) => q.eq("userId", authUserId))
+      .collect()
+
+    const grouped = await Promise.all(
+      enrollments.map(async (enrollment) => {
+        const course = await ctx.db.get(enrollment.courseId)
+        if (!course) return null
+
+        const chapters = await ctx.db
+          .query("chapters")
+          .withIndex("courseId", (q) => q.eq("courseId", enrollment.courseId))
+          .collect()
+        chapters.sort((a, b) => a.index - b.index)
+
+        const assignments = await Promise.all(
+          chapters.map(async (chapter) => {
+            const items: any[] = []
+
+            const chapterAssignments = await ctx.db
+              .query("assignments")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .collect()
+            for (const a of chapterAssignments.filter((x) => !x.deletedAt)) {
+              const sub = await ctx.db
+                .query("submissions")
+                .withIndex("assignmentId_userId", (q) =>
+                  q.eq("assignmentId", a._id).eq("userId", authUserId)
+                )
+                .first()
+              items.push({
+                ...a,
+                belongsTo: `Chapter: ${chapter.title}`,
+                chapterTitle: chapter.title,
+                submitted: !!sub,
+                submissionStatus: sub?.status ?? null,
+                score: sub?.score ?? null,
+              })
+            }
+
+            const lessons = await ctx.db
+              .query("lessons")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .collect()
+            lessons.sort((a, b) => a.index - b.index)
+
+            for (const lesson of lessons) {
+              const lessonAssignments = await ctx.db
+                .query("assignments")
+                .withIndex("lessonId", (q) => q.eq("lessonId", lesson._id))
+                .collect()
+              for (const a of lessonAssignments.filter((x) => !x.deletedAt)) {
+                const sub = await ctx.db
+                  .query("submissions")
+                  .withIndex("assignmentId_userId", (q) =>
+                    q.eq("assignmentId", a._id).eq("userId", authUserId)
+                  )
+                  .first()
+                items.push({
+                  ...a,
+                  belongsTo: `Lesson: ${lesson.title}`,
+                  chapterTitle: chapter.title,
+                  lessonId: lesson._id,
+                  submitted: !!sub,
+                  submissionStatus: sub?.status ?? null,
+                  score: sub?.score ?? null,
+                })
+              }
+            }
+            return items
+          })
+        )
+
+        return {
+          courseId: enrollment.courseId,
+          courseTitle: course.title,
+          assignments: assignments.flat(),
+        }
+      })
+    )
+    return grouped.filter(Boolean)
+  },
+})
+
+// getAssignmentWithCourse — fetches assignment + resolves courseId
+// needed on the standalone assignment editor page where we only have assignmentId
+export const getAssignmentWithCourse = query({
+  args: { assignmentId: v.id("assignments") },
+  handler: async (ctx, args) => {
+    const authUserId = await getAuthUserId(ctx)
+    if (!authUserId) throw new Error("Unauthenticated")
+
+    const assignment = await ctx.db.get(args.assignmentId)
+    if (!assignment || assignment.deletedAt) throw new Error("Not found")
+
+    // resolve courseId from lesson or chapter chain
+    let courseId
+    if (assignment.lessonId) {
+      const lesson = await ctx.db.get(assignment.lessonId)
+      const chapter = await ctx.db.get(lesson!.chapterId)
+      courseId = chapter!.courseId
+    } else {
+      const chapter = await ctx.db.get(assignment.chapterId!)
+      courseId = chapter!.courseId
+    }
+
+    await requireCourseRole(ctx.db, authUserId as any, courseId as any)
+
+    return { assignment, courseId }
+  },
+})
