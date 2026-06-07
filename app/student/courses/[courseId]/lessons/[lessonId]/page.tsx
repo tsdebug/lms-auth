@@ -1,20 +1,25 @@
 "use client"
 
+// Student lesson viewer
+// FIXED:
+//   1. now fetches BOTH lesson-level AND chapter-level quiz/assignment
+//      previously chapter-level ones were invisible because we only
+//      queried by lessonId — chapter items have no lessonId
+//   2. resolvedQuiz and allAssignments merge both sources
+
 import { useParams, useRouter } from "next/navigation"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
 import {
-  CheckCircleIcon,
-  CircleIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  BookOpenIcon,
+  CheckCircleIcon, CircleIcon,
+  ChevronLeftIcon, ChevronRightIcon, BookOpenIcon,
 } from "lucide-react"
 import { toast } from "sonner"
 import { useState } from "react"
 import { QuizPlayer } from "@/components/quiz/QuizPlayer"
+import { AssignmentSubmission } from "@/components/assignments/AssignmentSubmission"
 
 export default function LessonViewerPage() {
   const params = useParams()
@@ -25,22 +30,75 @@ export default function LessonViewerPage() {
   const lesson = useQuery(api.lessons.queries.getLessonContent, { lessonId, courseId })
   const progress = useQuery(api.lessons.queries.getCourseProgressForStudent, { courseId })
 
-  // CHANGED: getQuizByLesson → getQuizForStudent
-  // only used here to decide whether to show the "Take Quiz" button
-  // actual quiz data is fetched inside QuizPlayer
-  const quiz = useQuery(api.quizzes.queries.getQuizForStudent, { lessonId, courseId })
+  // --- quiz fetching ---
+  // fetch lesson-level quiz (quiz attached to this specific lesson)
+  const lessonQuiz = useQuery(
+    api.quizzes.queries.getQuizForStudent,
+    { lessonId, courseId }
+  )
+  // fetch chapter-level quiz (quiz attached to the whole chapter)
+  // WHY "skip": lesson.chapterId only exists once the lesson query resolves
+  // Convex "skip" tells it not to run until we have the argument
+  const chapterQuiz = useQuery(
+    api.quizzes.queries.getQuizByChapterForStudent,
+    lesson?.chapterId
+      ? { chapterId: lesson.chapterId, courseId }
+      : "skip"
+  )
+  // use lesson quiz first, fall back to chapter quiz
+  // WHY: lesson-specific quiz is more relevant to show
+  const resolvedQuiz = lessonQuiz ?? chapterQuiz
+
+  // --- assignment fetching ---
+  // same pattern as quiz — fetch both lesson and chapter level
+  const lessonAssignments = useQuery(
+    api.assignments.queries.getAssignmentsByLesson,
+    { lessonId, courseId }
+  )
+  const chapterAssignments = useQuery(
+    api.assignments.queries.getAssignmentsByChapter,
+    lesson?.chapterId
+      ? { chapterId: lesson.chapterId, courseId }
+      : "skip"
+  )
+  // merge both arrays — lesson assignments first
+  const allAssignments = [
+    ...(lessonAssignments ?? []),
+    ...(chapterAssignments ?? []),
+  ]
+  // we show the first one in the expandable section
+  // multiple assignments edge case can be handled later
+  const assignment = allAssignments[0] ?? null
 
   const markComplete = useMutation(api.lessons.mutations.markLessonComplete)
   const [marking, setMarking] = useState(false)
-  const [showQuiz, setShowQuiz] = useState(false)
+
+  // activeSection: which panel is expanded — null, "quiz", or "assignment"
+  // clicking the same button again collapses it (toggle behavior)
+  const [activeSection, setActiveSection] = useState<"quiz" | "assignment" | null>(null)
+
+  function toggleSection(section: "quiz" | "assignment") {
+    setActiveSection((prev) => (prev === section ? null : section))
+  }
 
   async function handleMarkComplete() {
     setMarking(true)
     try {
-      await markComplete({ lessonId })
-      toast.success("Lesson marked as complete!")
+      const result = await markComplete({ lessonId })
+      if ((result as any)?.certificateIssued) {
+        toast.success("🎉 Course complete! Certificate issued.", {
+          duration: 6000,
+          action: {
+            label: "View",
+            onClick: () =>
+              window.open(`/certificate/${(result as any).verificationCode}`, "_blank"),
+          },
+        })
+      } else {
+        toast.success("Lesson marked as complete!")
+      }
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to mark complete")
+      toast.error(err instanceof Error ? err.message : "Failed")
     } finally {
       setMarking(false)
     }
@@ -49,7 +107,9 @@ export default function LessonViewerPage() {
   const allLessons = progress?.chapters.flatMap((c) => c.lessons) ?? []
   const currentIndex = allLessons.findIndex((l) => l._id === lessonId)
   const prevLesson = currentIndex > 0 ? allLessons[currentIndex - 1] : null
-  const nextLesson = currentIndex < allLessons.length - 1 ? allLessons[currentIndex + 1] : null
+  const nextLesson = currentIndex < allLessons.length - 1
+    ? allLessons[currentIndex + 1]
+    : null
 
   if (lesson === undefined || progress === undefined) {
     return (
@@ -67,8 +127,12 @@ export default function LessonViewerPage() {
     )
   }
 
+  const hasQuiz = resolvedQuiz !== null && resolvedQuiz !== undefined
+  const hasAssignment = assignment !== null
+
   return (
     <div className="min-h-screen bg-background flex">
+
       {/* sidebar */}
       <div className="hidden lg:flex flex-col w-72 border-r shrink-0">
         <div className="p-4 border-b">
@@ -105,7 +169,9 @@ export default function LessonViewerPage() {
               {chapter.lessons.map((l, li) => (
                 <button
                   key={l._id}
-                  onClick={() => router.push(`/student/courses/${courseId}/lessons/${l._id}`)}
+                  onClick={() =>
+                    router.push(`/student/courses/${courseId}/lessons/${l._id}`)
+                  }
                   className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${
                     l._id === lessonId
                       ? "bg-primary/10 text-primary font-medium"
@@ -147,50 +213,93 @@ export default function LessonViewerPage() {
           <h1 className="text-3xl font-bold mb-4">{lesson.title}</h1>
 
           {lesson.description ? (
-            <p className="text-muted-foreground leading-relaxed">{lesson.description}</p>
+            <p className="text-muted-foreground leading-relaxed">
+              {lesson.description}
+            </p>
           ) : (
             <div className="rounded-lg border border-dashed p-8 text-center">
               <BookOpenIcon className="size-8 text-muted-foreground mx-auto mb-2" />
               <p className="text-sm text-muted-foreground">
-                No content yet. Media files coming soon.
+                No content yet.
               </p>
             </div>
           )}
 
-          {/* quiz section */}
-          {/* CHANGED: pass courseId to QuizPlayer so it can verify enrollment server-side */}
-          <div className="mt-8 flex flex-col gap-4">
-            {quiz === null || quiz === undefined ? null : (
-              !showQuiz ? (
-                <Button variant="outline" onClick={() => setShowQuiz(true)} className="w-fit">
-                  Take Quiz
-                </Button>
-              ) : (
-                <QuizPlayer lessonId={lessonId} courseId={courseId} />
-              )
-            )}
-          </div>
+          {/* quiz + assignment toggle buttons */}
+          {(hasQuiz || hasAssignment) && (
+            <div className="mt-8 flex flex-col gap-4">
+              <div className="flex gap-2">
+                {hasQuiz && (
+                  <button
+                    onClick={() => toggleSection("quiz")}
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      activeSection === "quiz"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border hover:border-foreground"
+                    }`}
+                  >
+                    Quiz
+                  </button>
+                )}
+                {hasAssignment && (
+                  <button
+                    onClick={() => toggleSection("assignment")}
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                      activeSection === "assignment"
+                        ? "bg-primary text-primary-foreground border-primary"
+                        : "border-border hover:border-foreground"
+                    }`}
+                  >
+                    Assignment
+                  </button>
+                )}
+              </div>
+
+              {/* expanded panel */}
+              {activeSection === "quiz" && resolvedQuiz && (
+                <QuizPlayer
+                  lessonId={lessonId}
+                  courseId={courseId}
+                  // pass chapterId if this is a chapter-level quiz
+                  // QuizPlayer needs it to fetch the right quiz
+                  chapterId={resolvedQuiz.chapterId ?? undefined}
+                />
+              )}
+
+              {activeSection === "assignment" && assignment && (
+                <AssignmentSubmission
+                  assignmentId={assignment._id}
+                  courseId={courseId}
+                />
+              )}
+            </div>
+          )}
         </div>
 
+        {/* prev / next */}
         <div className="border-t px-6 py-4 flex items-center justify-between">
           <Button
             variant="outline"
             size="sm"
             disabled={!prevLesson}
-            onClick={() => prevLesson && router.push(`/student/courses/${courseId}/lessons/${prevLesson._id}`)}
+            onClick={() =>
+              prevLesson &&
+              router.push(`/student/courses/${courseId}/lessons/${prevLesson._id}`)
+            }
           >
             <ChevronLeftIcon className="size-4 mr-1" />
             Previous
           </Button>
-
           <span className="text-xs text-muted-foreground">
             {currentIndex + 1} / {allLessons.length}
           </span>
-
           <Button
             size="sm"
             disabled={!nextLesson}
-            onClick={() => nextLesson && router.push(`/student/courses/${courseId}/lessons/${nextLesson._id}`)}
+            onClick={() =>
+              nextLesson &&
+              router.push(`/student/courses/${courseId}/lessons/${nextLesson._id}`)
+            }
           >
             Next
             <ChevronRightIcon className="size-4 ml-1" />

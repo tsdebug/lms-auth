@@ -422,3 +422,53 @@ export const getQuizById = query({
     return quiz
   },
 })
+
+
+// --- getQuizByChapterForStudent ---
+// student variant for chapter-level quizzes
+// strips isCorrect server-side just like getQuizForStudent
+// ACCESS: enrolled students only
+export const getQuizByChapterForStudent = query({
+  args: {
+    chapterId: v.id("chapters"),
+    courseId: v.id("courses"),
+  },
+  handler: async (ctx, args) => {
+    const authUserId = await getAuthUserId(ctx)
+    if (!authUserId) throw new Error("Unauthenticated")
+
+    // enrollment check — must be enrolled in the course
+    const enrollment = await ctx.db
+      .query("enrollments")
+      .withIndex("userId_courseId", (q) =>
+        q.eq("userId", authUserId).eq("courseId", args.courseId)
+      )
+      .first()
+    if (!enrollment) throw new Error("Not enrolled")
+
+    const quiz = await ctx.db
+      .query("quizzes")
+      .withIndex("chapterId", (q) => q.eq("chapterId", args.chapterId))
+      .first()
+    if (!quiz) return null
+
+    const questions = await ctx.db
+      .query("q_questions")
+      .withIndex("quizId", (q) => q.eq("quizId", quiz._id))
+      .collect()
+    questions.sort((a, b) => a.index - b.index)
+
+    const questionsWithAnswers = await Promise.all(
+      questions.map(async (question) => {
+        const answers = await ctx.db
+          .query("q_answers")
+          .withIndex("questionId", (q) => q.eq("questionId", question._id))
+          .collect()
+        // strip isCorrect — student must not see this before submitting
+        const safeAnswers = answers.map(({ isCorrect: _removed, ...rest }) => rest)
+        return { ...question, answers: safeAnswers }
+      })
+    )
+    return { ...quiz, questions: questionsWithAnswers }
+  },
+})

@@ -70,6 +70,15 @@ import {
 
 // DragHandle — the grip icon on the left of each row
 // allows drag to reorder rows
+type TableRowId = {
+  id?: UniqueIdentifier
+  _id?: UniqueIdentifier
+}
+
+function getRowIdValue<TData extends TableRowId>(row: TData): UniqueIdentifier {
+  return row.id ?? row._id ?? ""
+}
+
 function DragHandle({ id }: { id: UniqueIdentifier }) {
   const { attributes, listeners } = useSortable({ id })
   return (
@@ -87,13 +96,13 @@ function DragHandle({ id }: { id: UniqueIdentifier }) {
 }
 
 // DraggableRow — wraps each table row with drag functionality
-function DraggableRow<TData extends { id: UniqueIdentifier }>({
+function DraggableRow<TData extends TableRowId>({
   row,
 }: {
   row: Row<TData>
 }) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
-    id: row.original.id,
+    id: getRowIdValue(row.original),
   })
   return (
     <TableRow
@@ -118,12 +127,12 @@ function DraggableRow<TData extends { id: UniqueIdentifier }>({
 // DataTable — generic reusable table component
 // accepts any data shape and any column definitions
 // handles sorting, filtering, pagination, drag to reorder
-interface DataTableProps<TData extends { id: UniqueIdentifier }> {
+interface DataTableProps<TData extends TableRowId> {
   data: TData[]
   columns: ColumnDef<TData>[]
 }
 
-export function DataTable<TData extends { id: UniqueIdentifier }>({
+export function DataTable<TData extends TableRowId>({
   data: initialData,
   columns,
 }: DataTableProps<TData>) {
@@ -152,7 +161,7 @@ export function DataTable<TData extends { id: UniqueIdentifier }>({
   }, [initialData])
 
   const dataIds = React.useMemo<UniqueIdentifier[]>(
-    () => data?.map(({ id }) => id) || [],
+    () => data?.map(getRowIdValue) || [],
     [data]
   )
 
@@ -166,7 +175,7 @@ export function DataTable<TData extends { id: UniqueIdentifier }>({
       columnFilters,
       pagination,
     },
-    getRowId: (row) => String(row.id),
+    getRowId: (row) => String(getRowIdValue(row)),
     enableRowSelection: true,
     onRowSelectionChange: setRowSelection,
     onSortingChange: setSorting,
