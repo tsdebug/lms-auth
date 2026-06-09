@@ -17,8 +17,9 @@ import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { AssignmentBuilder } from "@/components/assignments/AssignmentBuilder"
+import { RichTextEditor } from "@/components/editor/RichTextEditor"
 import { QuizBuilder } from "@/components/quiz/QuizBuilder"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -49,6 +50,12 @@ export default function LessonEditorPage() {
     setTitle(lessonContent.title)
     setDescription(lessonContent.description ?? "")
     setInitialized(true)
+  }
+
+  function handleCancel() {
+    if (!lessonContent) return
+    setTitle(lessonContent.title)
+    setDescription(lessonContent.description ?? "")
   }
 
   async function handleSave() {
@@ -112,22 +119,33 @@ export default function LessonEditorPage() {
             </div>
 
             <div className="flex flex-col gap-1.5">
-              <Label>Description</Label>
-              <Textarea
+              <Label>Lesson content</Label>
+              <p className="text-xs text-muted-foreground">
+                Write the material students will read when they open this lesson.
+              </p>
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="What will students learn in this lesson?"
-                rows={4}
+                onChange={setDescription}
+                placeholder="Add lesson content, instructions, resources..."
               />
             </div>
 
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-fit"
-            >
-              {saving ? "Saving..." : "Save Lesson"}
-            </Button>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleCancel}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSave}
+                disabled={saving}
+              >
+                {saving ? "Saving..." : "Save Lesson"}
+              </Button>
+            </div>
           </div>
 
           <div className="border-t" />
@@ -143,6 +161,23 @@ export default function LessonEditorPage() {
               </p>
             </div>
             <QuizBuilder lessonId={lessonId} />
+          </div>
+
+          <div className="border-t" />
+
+          {/* ── SECTION 3: Assignment Builder ── */}
+          <div className="flex flex-col gap-4">
+            <div>
+              <h2 className="text-lg font-semibold">Assignment</h2>
+              <p className="text-sm text-muted-foreground">
+                Add an assignment for students to complete as part of this lesson or chapter.
+              </p>
+            </div>
+            <AssignmentBuilder
+              lessonId={lessonId}
+              chapterId={lessonContent.chapterId}
+              courseId={courseId}
+            />
           </div>
 
         </div>

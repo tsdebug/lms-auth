@@ -329,6 +329,13 @@ export const getAllQuizzesForStudent = query({
           chapters.map(async (chapter) => {
             const items: any[] = []
 
+            const lessons = await ctx.db
+              .query("lessons")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .collect()
+            lessons.sort((a, b) => a.index - b.index)
+            const firstLessonId = lessons[0]?._id
+
             // chapter-level quiz
             const chapterQuiz = await ctx.db
               .query("quizzes")
@@ -346,6 +353,7 @@ export const getAllQuizzesForStudent = query({
                 ...chapterQuiz,
                 belongsTo: `Chapter: ${chapter.title}`,
                 chapterTitle: chapter.title,
+                navigationLessonId: firstLessonId,
                 attempted: !!attempt?.completedAt,
                 score: attempt?.score ?? null,
                 maxScore: attempt?.maxScore ?? null,
@@ -353,11 +361,6 @@ export const getAllQuizzesForStudent = query({
             }
 
             // lesson-level quizzes
-            const lessons = await ctx.db
-              .query("lessons")
-              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
-              .collect()
-            lessons.sort((a, b) => a.index - b.index)
 
             for (const lesson of lessons) {
               const quiz = await ctx.db
@@ -376,6 +379,7 @@ export const getAllQuizzesForStudent = query({
                 belongsTo: `Lesson: ${lesson.title}`,
                 chapterTitle: chapter.title,
                 lessonId: lesson._id,
+                navigationLessonId: lesson._id,
                 attempted: !!attempt?.completedAt,
                 score: attempt?.score ?? null,
                 maxScore: attempt?.maxScore ?? null,

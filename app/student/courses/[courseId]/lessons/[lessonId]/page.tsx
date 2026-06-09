@@ -213,9 +213,11 @@ export default function LessonViewerPage() {
           <h1 className="text-3xl font-bold mb-4">{lesson.title}</h1>
 
           {lesson.description ? (
-            <p className="text-muted-foreground leading-relaxed">
-              {lesson.description}
-            </p>
+            <div
+              className="prose prose-sm max-w-none text-muted-foreground leading-relaxed
+                [&_h2]:text-foreground [&_a]:text-primary [&_img]:rounded-lg"
+              dangerouslySetInnerHTML={{ __html: lesson.description }}
+            />
           ) : (
             <div className="rounded-lg border border-dashed p-8 text-center">
               <BookOpenIcon className="size-8 text-muted-foreground mx-auto mb-2" />

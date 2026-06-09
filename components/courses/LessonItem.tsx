@@ -7,7 +7,7 @@ import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
+import { RichTextEditor } from "@/components/editor/RichTextEditor"
 import { Trash2Icon, FileTextIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { toast } from "sonner"
 import {
@@ -91,7 +91,7 @@ export function LessonItem({ lesson, courseId }: LessonItemProps) {
           <span className="font-medium hover:underline">{lesson.title}</span>
           {!expanded && lesson.description && (
             <span className="text-xs text-muted-foreground truncate max-w-[200px]">
-              — {lesson.description}
+              — {lesson.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
             </span>
           )}
         </div>
@@ -152,15 +152,14 @@ export function LessonItem({ lesson, courseId }: LessonItemProps) {
             />
           </div>
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-medium text-muted-foreground">Description</label>
-            <Textarea
+            <label className="text-xs font-medium text-muted-foreground">Lesson content</label>
+            <RichTextEditor
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What will students learn in this lesson?"
-              rows={3}
+              onChange={setDescription}
+              placeholder="Add lesson content..."
             />
           </div>
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-2">
             <Button
               size="sm"
               variant="ghost"

@@ -25,6 +25,7 @@ type StudentQuizRow = {
   // undefined = chapter-level quiz, no lesson
   lessonTitle: string | undefined
   lessonId: Id<"lessons"> | undefined
+  navigationLessonId: Id<"lessons"> | undefined
   totalScore: number
   attempted: boolean
   score: number | null
@@ -51,6 +52,7 @@ export default function StudentQuizzesPage() {
         ? quiz.belongsTo.replace("Lesson: ", "")
         : undefined,
       lessonId: quiz.lessonId ?? undefined,
+      navigationLessonId: quiz.navigationLessonId ?? undefined,
       totalScore: quiz.totalScore,
       attempted: quiz.attempted,
       score: quiz.score,
@@ -131,16 +133,18 @@ export default function StudentQuizzesPage() {
         // only show Take button if not attempted and quiz is lesson-level
         // chapter-level quizzes show on the lesson page automatically
         if (row.original.attempted) return null
-        if (!row.original.lessonId) return (
-          <span className="text-xs text-muted-foreground">
-            Open lesson
-          </span>
-        )
+        const targetLessonId =
+          row.original.lessonId ?? row.original.navigationLessonId
+        if (!targetLessonId) {
+          return (
+            <span className="text-xs text-muted-foreground">No lesson yet</span>
+          )
+        }
         return (
           <button
             onClick={() =>
               router.push(
-                `/student/courses/${row.original.courseId}/lessons/${row.original.lessonId}`
+                `/student/courses/${row.original.courseId}/lessons/${targetLessonId}`
               )
             }
             className="text-xs text-primary hover:underline"

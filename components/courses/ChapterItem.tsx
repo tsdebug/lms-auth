@@ -115,7 +115,7 @@ export function ChapterItem({ chapter, courseId }: ChapterItemProps) {
 
       {/* add lesson */}
       {addingLesson ? (
-        <div className="flex items-center gap-2 pl-4">
+        <div className="flex flex-col gap-2 pl-4">
           <Input
             value={lessonTitle}
             onChange={(e) => setLessonTitle(e.target.value)}
@@ -124,14 +124,16 @@ export function ChapterItem({ chapter, courseId }: ChapterItemProps) {
             onKeyDown={(e) => e.key === "Enter" && handleAddLesson()}
             autoFocus
           />
-          <Button size="sm" onClick={handleAddLesson}>Add</Button>
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => { setAddingLesson(false); setLessonTitle("") }}
-          >
-            Cancel
-          </Button>
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { setAddingLesson(false); setLessonTitle("") }}
+            >
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleAddLesson}>Add</Button>
+          </div>
         </div>
       ) : (
         <Button

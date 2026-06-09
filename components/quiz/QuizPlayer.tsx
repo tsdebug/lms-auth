@@ -15,12 +15,21 @@ import { toast } from "sonner"
 interface QuizPlayerProps {
   lessonId: Id<"lessons">
   courseId: Id<"courses">  // ADDED: needed for enrollment check in getQuizForStudent
+  chapterId?: Id<"chapters">
 }
 
-export function QuizPlayer({ lessonId, courseId }: QuizPlayerProps) {
-  // CHANGED: was getQuizByLesson — now getQuizForStudent
-  // answers no longer carry isCorrect field — stripped server-side
-  const quiz = useQuery(api.quizzes.queries.getQuizForStudent, { lessonId, courseId })
+export function QuizPlayer({ lessonId, courseId, chapterId }: QuizPlayerProps) {
+  // CHANGED: when chapterId is present, load the chapter-level quiz instead
+  // otherwise fall back to the lesson-level quiz
+  const lessonQuiz = useQuery(
+    api.quizzes.queries.getQuizForStudent,
+    chapterId ? "skip" : { lessonId, courseId }
+  )
+  const chapterQuiz = useQuery(
+    api.quizzes.queries.getQuizByChapterForStudent,
+    chapterId ? { chapterId, courseId } : "skip"
+  )
+  const quiz = chapterId ? chapterQuiz : lessonQuiz
 
   const existingAttempt = useQuery(
     api.quizzes.queries.getQuizAttempt,

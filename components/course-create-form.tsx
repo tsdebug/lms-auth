@@ -179,7 +179,14 @@ export function CourseCreateForm() {
             )}
           </div>
 
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => router.push("/teacher/courses")}
+            >
+              Cancel
+            </Button>
             <Button type="submit" disabled={isSubmitting || !title.trim()}>
               {isSubmitting ? "Creating..." : "Create Course"}
             </Button>

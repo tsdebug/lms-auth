@@ -152,12 +152,12 @@ function AnswerForm({
         Add option
       </Button>
 
-      <div className="flex gap-2 mt-1">
+      <div className="flex justify-end gap-2 pt-2">
+        <Button size="sm" variant="ghost" onClick={onDone} disabled={saving}>
+          Cancel
+        </Button>
         <Button size="sm" onClick={handleSave} disabled={saving}>
           {saving ? "Saving..." : "Save Answers"}
-        </Button>
-        <Button size="sm" variant="ghost" onClick={onDone}>
-          Cancel
         </Button>
       </div>
     </div>
@@ -230,10 +230,7 @@ function QuestionItem({
             />
             <span className="text-xs text-muted-foreground">points</span>
           </div>
-          <div className="flex gap-2">
-            <Button size="sm" onClick={handleSaveQuestion} disabled={saving}>
-              {saving ? "Saving..." : "Save"}
-            </Button>
+          <div className="flex justify-end gap-2 pt-2">
             <Button
               size="sm"
               variant="ghost"
@@ -242,8 +239,12 @@ function QuestionItem({
                 setContent(question.content)
                 setScore(String(question.quesScore))
               }}
+              disabled={saving}
             >
               Cancel
+            </Button>
+            <Button size="sm" onClick={handleSaveQuestion} disabled={saving}>
+              {saving ? "Saving..." : "Save"}
             </Button>
           </div>
         </div>
@@ -358,7 +359,13 @@ export function QuizBuilder({ lessonId, chapterId }: QuizBuilderProps) {
     if (!quizTitle.trim()) return
     setCreatingQuiz(true)
     try {
-      await createQuiz({ lessonId, title: quizTitle.trim(), totalScore: Number(totalScore), description: "" })
+      await createQuiz({
+        lessonId: lessonId ?? undefined,
+        chapterId: chapterId ?? undefined,
+        title: quizTitle.trim(),
+        totalScore: Number(totalScore),
+        description: "",
+      })
       toast.success("Quiz created")
       setQuizTitle("")
     } catch (err) {
@@ -369,9 +376,9 @@ export function QuizBuilder({ lessonId, chapterId }: QuizBuilderProps) {
   }
 
   async function handleUpdateQuizHeader() {
-    if (!quiz) return
+    if (!resolvedQuiz) return
     try {
-      await updateQuiz({ quizId: quiz._id, title: editTitle.trim() || undefined, totalScore: Number(editTotalScore) })
+      await updateQuiz({ quizId: resolvedQuiz._id, title: editTitle.trim() || undefined, totalScore: Number(editTotalScore) })
       toast.success("Quiz updated")
       setEditingQuizHeader(false)
     } catch (err) {
@@ -380,10 +387,10 @@ export function QuizBuilder({ lessonId, chapterId }: QuizBuilderProps) {
   }
 
   async function handleAddQuestion() {
-    if (!quiz || !questionContent.trim()) return
+    if (!resolvedQuiz || !questionContent.trim()) return
     setAddingQuestion(true)
     try {
-      await createQuestion({ quizId: quiz._id, content: questionContent.trim(), quesScore: Number(questionScore) })
+      await createQuestion({ quizId: resolvedQuiz._id, content: questionContent.trim(), quesScore: Number(questionScore) })
       toast.success("Question added")
       setQuestionContent("")
       setQuestionScore("10")
@@ -395,11 +402,11 @@ export function QuizBuilder({ lessonId, chapterId }: QuizBuilderProps) {
     }
   }
 
-  if (quiz === undefined) {
+  if (resolvedQuiz === undefined) {
     return <div className="text-sm text-muted-foreground">Loading quiz...</div>
   }
 
-  if (quiz === null) {
+  if (resolvedQuiz === null) {
     return (
       <div className="rounded-lg border p-4 flex flex-col gap-4">
         <h3 className="font-medium text-sm">Create a Quiz</h3>
@@ -428,31 +435,33 @@ export function QuizBuilder({ lessonId, chapterId }: QuizBuilderProps) {
             <Input type="number" value={editTotalScore} onChange={(e) => setEditTotalScore(e.target.value)} className="w-32" />
             <span className="text-xs text-muted-foreground">total points</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex justify-end gap-2 pt-2">
+            <Button size="sm" variant="ghost" onClick={() => setEditingQuizHeader(false)}>
+              Cancel
+            </Button>
             <Button size="sm" onClick={handleUpdateQuizHeader}>Save</Button>
-            <Button size="sm" variant="ghost" onClick={() => setEditingQuizHeader(false)}>Cancel</Button>
           </div>
         </div>
       ) : (
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-medium">{quiz.title}</h3>
-            <p className="text-xs text-muted-foreground">{quiz.questions.length} questions · {quiz.totalScore} pts total</p>
+            <h3 className="font-medium">{resolvedQuiz.title}</h3>
+            <p className="text-xs text-muted-foreground">{resolvedQuiz.questions.length} questions · {resolvedQuiz.totalScore} pts total</p>
           </div>
           <div className="flex items-center gap-2">
             <Badge variant="outline">Quiz</Badge>
-            <Button variant="ghost" size="icon" className="size-7" onClick={() => { setEditTitle(quiz.title); setEditTotalScore(String(quiz.totalScore)); setEditingQuizHeader(true); }}>
+            <Button variant="ghost" size="icon" className="size-7" onClick={() => { setEditTitle(resolvedQuiz.title); setEditTotalScore(String(resolvedQuiz.totalScore)); setEditingQuizHeader(true); }}>
               <PencilIcon className="size-3.5" />
             </Button>
           </div>
         </div>
       )}
 
-      {quiz.questions.length === 0 && (
+      {resolvedQuiz.questions.length === 0 && (
         <p className="text-xs text-muted-foreground">No questions yet. Add your first question below.</p>
       )}
 
-      {quiz.questions.map((question, qi) => (
+      {resolvedQuiz.questions.map((question, qi) => (
         <QuestionItem key={question._id} question={question} index={qi} />
       ))}
 
@@ -464,11 +473,18 @@ export function QuizBuilder({ lessonId, chapterId }: QuizBuilderProps) {
             <Input type="number" value={questionScore} onChange={(e) => setQuestionScore(e.target.value)} className="w-24 h-8 text-sm" />
             <span className="text-xs text-muted-foreground">points</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => { setShowAddQuestion(false); setQuestionContent("") }}
+              disabled={addingQuestion}
+            >
+              Cancel
+            </Button>
             <Button size="sm" onClick={handleAddQuestion} disabled={addingQuestion || !questionContent.trim()}>
               {addingQuestion ? "Adding..." : "Add Question"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => { setShowAddQuestion(false); setQuestionContent("") }}>Cancel</Button>
           </div>
         </div>
       ) : (

@@ -240,16 +240,16 @@ export function CourseEditForm({ courseId, initialData }: CourseEditFormProps) {
             )}
           </div>
 
-          <div className="flex gap-3">
-            <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? "Saving..." : "Save changes"}
-            </Button>
+          <div className="flex justify-end gap-2 pt-2">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={() => router.push("/teacher/courses")}
             >
               Cancel
+            </Button>
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? "Saving..." : "Save changes"}
             </Button>
           </div>
 
