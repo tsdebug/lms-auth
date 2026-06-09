@@ -321,6 +321,13 @@ export const getAllAssignmentsForStudent = query({
           chapters.map(async (chapter) => {
             const items: any[] = []
 
+            const lessons = await ctx.db
+              .query("lessons")
+              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
+              .collect()
+            lessons.sort((a, b) => a.index - b.index)
+            const firstLessonId = lessons[0]?._id
+
             const chapterAssignments = await ctx.db
               .query("assignments")
               .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
@@ -336,17 +343,12 @@ export const getAllAssignmentsForStudent = query({
                 ...a,
                 belongsTo: `Chapter: ${chapter.title}`,
                 chapterTitle: chapter.title,
+                navigationLessonId: firstLessonId,
                 submitted: !!sub,
                 submissionStatus: sub?.status ?? null,
                 score: sub?.score ?? null,
               })
             }
-
-            const lessons = await ctx.db
-              .query("lessons")
-              .withIndex("chapterId", (q) => q.eq("chapterId", chapter._id))
-              .collect()
-            lessons.sort((a, b) => a.index - b.index)
 
             for (const lesson of lessons) {
               const lessonAssignments = await ctx.db
@@ -365,6 +367,7 @@ export const getAllAssignmentsForStudent = query({
                   belongsTo: `Lesson: ${lesson.title}`,
                   chapterTitle: chapter.title,
                   lessonId: lesson._id,
+                  navigationLessonId: lesson._id,
                   submitted: !!sub,
                   submissionStatus: sub?.status ?? null,
                   score: sub?.score ?? null,

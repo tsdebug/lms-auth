@@ -10,11 +10,11 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeftIcon } from "lucide-react"
 import { useState } from "react"
 import { toast } from "sonner"
+import { RichTextEditor } from "@/components/editor/RichTextEditor"
 
 export default function AssignmentEditorPage() {
   const params = useParams()
@@ -62,6 +62,16 @@ export default function AssignmentEditorPage() {
       ? { assignmentId, courseId: assignmentData.courseId }
       : "skip"
   )
+
+  function handleCancel() {
+    if (!assignmentData) return
+    setEditTitle(assignmentData.assignment.title)
+    setEditDesc(assignmentData.assignment.description ?? "")
+    setEditDueDate(assignmentData.assignment.dueDate)
+    setEditMaxScore(String(assignmentData.assignment.maxScore))
+    setEditAllowLate(assignmentData.assignment.allowLateSubmission)
+    setEditAllowResub(assignmentData.assignment.allowResubmission)
+  }
 
   async function handleSave() {
     setSaving(true)
@@ -138,7 +148,11 @@ export default function AssignmentEditorPage() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Description</Label>
-              <Textarea value={editDesc} onChange={(e) => setEditDesc(e.target.value)} rows={3} />
+              <RichTextEditor
+                value={editDesc}
+                onChange={setEditDesc}
+                placeholder="Add assignment instructions..."
+              />
             </div>
             <div className="flex gap-4">
               <div className="flex flex-col gap-1.5 flex-1">
@@ -160,9 +174,19 @@ export default function AssignmentEditorPage() {
                 Allow resubmission
               </label>
             </div>
-            <Button onClick={handleSave} disabled={saving} className="w-fit">
-              {saving ? "Saving..." : "Save Changes"}
-            </Button>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleCancel}
+                disabled={saving}
+              >
+                Cancel
+              </Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
           </div>
 
           <div className="border-t" />
@@ -210,9 +234,11 @@ export default function AssignmentEditorPage() {
 
                     {/* what they submitted */}
                     {sub.textSubmission && (
-                      <p className="text-sm bg-muted/50 rounded p-3 whitespace-pre-wrap">
-                        {sub.textSubmission}
-                      </p>
+                      <RichTextEditor
+                        value={sub.textSubmission}
+                        onChange={() => {}}
+                        editable={false}
+                      />
                     )}
                     {sub.linkUrl && (
                       <a
@@ -257,20 +283,21 @@ export default function AssignmentEditorPage() {
                             />
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex justify-end gap-2 pt-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => setGradingId(null)}
+                            disabled={grading}
+                          >
+                            Cancel
+                          </Button>
                           <Button
                             size="sm"
                             onClick={() => handleGrade(sub._id)}
                             disabled={grading || !gradeScore}
                           >
                             {grading ? "Saving..." : "Save Grade"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setGradingId(null)}
-                          >
-                            Cancel
                           </Button>
                         </div>
                       </div>

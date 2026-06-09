@@ -11,8 +11,8 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
+import { RichTextEditor } from "@/components/editor/RichTextEditor"
 
 export default function NewAssignmentPage() {
   const router = useRouter()
@@ -172,7 +172,11 @@ export default function NewAssignmentPage() {
 
           <div className="flex flex-col gap-1.5">
             <Label>Description</Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="What should students submit?" />
+            <RichTextEditor
+              value={description}
+              onChange={setDescription}
+              placeholder="What should students submit?"
+            />
           </div>
 
           <div className="flex gap-4">
@@ -198,9 +202,22 @@ export default function NewAssignmentPage() {
             </label>
           </div>
 
-          <Button onClick={handleCreate} disabled={creating || !title.trim() || !dueDate} className="w-fit">
-            {creating ? "Creating..." : "Create Assignment"}
-          </Button>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => router.push("/teacher/assignments")}
+              disabled={creating}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreate}
+              disabled={creating || !title.trim() || !dueDate}
+            >
+              {creating ? "Creating..." : "Create Assignment"}
+            </Button>
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>
