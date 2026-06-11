@@ -160,7 +160,8 @@ export default function LessonEditorPage() {
                 Add a quiz to test student understanding of this lesson.
               </p>
             </div>
-            <QuizBuilder lessonId={lessonId} />
+            <QuizBuilder lessonId={lessonId}
+              chapterId={lessonContent.chapterId} />
           </div>
 
           <div className="border-t" />

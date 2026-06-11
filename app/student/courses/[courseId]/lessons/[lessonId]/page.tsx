@@ -21,6 +21,8 @@ import { useState } from "react"
 import { QuizPlayer } from "@/components/quiz/QuizPlayer"
 import { AssignmentSubmission } from "@/components/assignments/AssignmentSubmission"
 
+import { RichTextEditor } from "@/components/editor/RichTextEditor"
+
 export default function LessonViewerPage() {
   const params = useParams()
   const router = useRouter()
@@ -172,11 +174,10 @@ export default function LessonViewerPage() {
                   onClick={() =>
                     router.push(`/student/courses/${courseId}/lessons/${l._id}`)
                   }
-                  className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${
-                    l._id === lessonId
+                  className={`w-full flex items-center gap-2 px-4 py-2 text-sm text-left transition-colors ${l._id === lessonId
                       ? "bg-primary/10 text-primary font-medium"
                       : "hover:bg-muted/50"
-                  }`}
+                    }`}
                 >
                   {l.isCompleted ? (
                     <CheckCircleIcon className="size-3.5 text-green-500 shrink-0" />
@@ -213,10 +214,13 @@ export default function LessonViewerPage() {
           <h1 className="text-3xl font-bold mb-4">{lesson.title}</h1>
 
           {lesson.description ? (
-            <div
-              className="prose prose-sm max-w-none text-muted-foreground leading-relaxed
-                [&_h2]:text-foreground [&_a]:text-primary [&_img]:rounded-lg"
-              dangerouslySetInnerHTML={{ __html: lesson.description }}
+            // editable=false shows content without toolbar
+            // WHY RichTextEditor not dangerouslySetInnerHTML:
+            // Tiptap handles the HTML rendering safely with proper prose styling
+            <RichTextEditor
+              value={lesson.description}
+              onChange={() => { }}
+              editable={false}
             />
           ) : (
             <div className="rounded-lg border border-dashed p-8 text-center">
@@ -234,11 +238,10 @@ export default function LessonViewerPage() {
                 {hasQuiz && (
                   <button
                     onClick={() => toggleSection("quiz")}
-                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                      activeSection === "quiz"
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${activeSection === "quiz"
                         ? "bg-primary text-primary-foreground border-primary"
                         : "border-border hover:border-foreground"
-                    }`}
+                      }`}
                   >
                     Quiz
                   </button>
@@ -246,11 +249,10 @@ export default function LessonViewerPage() {
                 {hasAssignment && (
                   <button
                     onClick={() => toggleSection("assignment")}
-                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                      activeSection === "assignment"
+                    className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${activeSection === "assignment"
                         ? "bg-primary text-primary-foreground border-primary"
                         : "border-border hover:border-foreground"
-                    }`}
+                      }`}
                   >
                     Assignment
                   </button>
