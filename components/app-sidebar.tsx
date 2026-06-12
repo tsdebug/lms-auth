@@ -3,7 +3,7 @@
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 
-import { FileQuestionIcon, ClipboardListIcon } from "lucide-react"
+import { FileQuestionIcon, ClipboardListIcon, AwardIcon } from "lucide-react"
 
 import * as React from "react"
 import { NavMain } from "@/components/nav-main"
@@ -45,7 +45,7 @@ const studentNav = [
   { title: "Quizzes", url: "/student/quizzes", icon: <FileQuestionIcon /> },
   { title: "Assignments", url: "/student/assignments", icon: <ClipboardListIcon /> },
   { title: "Progress", url: "/student/progress", icon: <TrendingUp /> },
-  { title: "Certificates", url: "/student/certificates", icon: <Award /> },
+  { title: "Certificates", url: "/student/certificates", icon: <AwardIcon /> },
 ]
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> { }

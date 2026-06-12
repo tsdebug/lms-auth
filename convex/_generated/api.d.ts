@@ -12,6 +12,7 @@ import type * as ResendOTPPasswordReset from "../ResendOTPPasswordReset.js";
 import type * as assignments_mutations from "../assignments/mutations.js";
 import type * as assignments_queries from "../assignments/queries.js";
 import type * as auth from "../auth.js";
+import type * as certificates_queries from "../certificates/queries.js";
 import type * as chapters_mutations from "../chapters/mutations.js";
 import type * as chapters_queries from "../chapters/queries.js";
 import type * as courses_mutations from "../courses/mutations.js";
@@ -40,6 +41,7 @@ declare const fullApi: ApiFromModules<{
   "assignments/mutations": typeof assignments_mutations;
   "assignments/queries": typeof assignments_queries;
   auth: typeof auth;
+  "certificates/queries": typeof certificates_queries;
   "chapters/mutations": typeof chapters_mutations;
   "chapters/queries": typeof chapters_queries;
   "courses/mutations": typeof courses_mutations;
