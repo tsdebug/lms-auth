@@ -35,7 +35,6 @@ const teacherNav = [
   { title: "Quizzes", url: "/teacher/quizzes", icon: <FileQuestionIcon /> },
   { title: "Assignments", url: "/teacher/assignments", icon: <ClipboardListIcon /> },
   { title: "Students", url: "/teacher/students", icon: <Users /> },
-  { title: "Settings", url: "/teacher/settings", icon: <Settings /> },
 ]
 
 const studentNav = [
@@ -44,7 +43,6 @@ const studentNav = [
   { title: "My Courses", url: "/student/courses", icon: <BookOpen /> },
   { title: "Quizzes", url: "/student/quizzes", icon: <FileQuestionIcon /> },
   { title: "Assignments", url: "/student/assignments", icon: <ClipboardListIcon /> },
-  { title: "Progress", url: "/student/progress", icon: <TrendingUp /> },
   { title: "Certificates", url: "/student/certificates", icon: <AwardIcon /> },
 ]
 
