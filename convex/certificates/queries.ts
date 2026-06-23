@@ -20,19 +20,30 @@ export const getMyCertificates = query({
     // step 3: filter out revoked ones
     const active = certs.filter((c) => c.status === "issued")
 
-    // step 4: enrich each cert with course title
-    // WHY: we only store courseId on the cert, student needs the title to display
+    // step 4: enrich each cert with course, recipient, and instructor info
+    // WHY: cert only stores IDs — we need names for display
     const enriched = await Promise.all(
       active.map(async (cert) => {
+        // fetch the course this cert belongs to
         const course = await ctx.db.get(cert.courseId)
+
+        // fetch the student who earned this cert
+        // WHY cert.userId not authUserId: future-proofs for admin viewing others' certs
+        const user = await ctx.db.get(cert.userId)
+
+        // fetch the instructor from the course
+        const instructor = course ? await ctx.db.get(course.userId) : null
+
         return {
           ...cert,
           courseTitle: course?.title ?? "Unknown Course",
-          // instructorName for display on certificate
-          instructorName: course
-            ? await ctx.db.get(course.userId).then((u) =>
-                u ? `${u.fName ?? ""} ${u.lName ?? ""}`.trim() : "Unknown"
-              )
+          // recipientName — full name of the student
+          recipientName: user
+            ? `${user.fName ?? ""} ${user.lName ?? ""}`.trim() || "Unknown"
+            : "Unknown",
+          // instructorName — full name of the course creator
+          instructorName: instructor
+            ? `${instructor.fName ?? ""} ${instructor.lName ?? ""}`.trim() || "Unknown"
             : "Unknown",
         }
       })
@@ -78,8 +89,8 @@ export const getCertificateByCode = query({
         : "Unknown",
       instructorName: course
         ? await ctx.db.get(course.userId).then((u) =>
-            u ? `${u.fName ?? ""} ${u.lName ?? ""}`.trim() : "Unknown"
-          )
+          u ? `${u.fName ?? ""} ${u.lName ?? ""}`.trim() : "Unknown"
+        )
         : "Unknown",
       status: cert.status,
     }

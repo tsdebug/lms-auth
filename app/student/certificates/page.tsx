@@ -74,8 +74,7 @@ export default function StudentCertificatesPage() {
                 className="rounded-xl border bg-card flex flex-col overflow-hidden"
               >
                 {/* certificate thumbnail at the top of the card */}
-                {/* WHY thumbnail prop: same component, scaled down version */}
-                <div className="border-b">
+                <div className="border-b" style={{ height: "220px", overflow: "hidden" }}>
                   <CertificateCard
                     recipientName={cert.recipientName}
                     courseTitle={cert.courseTitle}
