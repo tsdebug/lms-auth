@@ -1,7 +1,7 @@
 import { DatabaseReader } from "../_generated/server"
 import { Id } from "../_generated/dataModel"
 
-// Platform-Level Role check
+// --- Platform-Level Role check ---
 // should throw an error if the user doesn't have the role
 export async function requireRole(
     db: DatabaseReader,
@@ -31,7 +31,7 @@ export async function requireRole(
     }
 }
 
-// Course-Level Role check
+// --- Course-Level Role check ---
 // should throw an error if the user isn't an instructor on this course
 export async function requireCourseRole(
     db: DatabaseReader,
@@ -48,7 +48,7 @@ export async function requireCourseRole(
     }
 }
 
-// checks student is enrolled in a course
+// --- checks student is enrolled in a course ---
 // throws if not — same pattern as requireCourseRole
 export async function requireEnrollment(
     db: DatabaseReader,
@@ -67,6 +67,7 @@ export async function requireEnrollment(
     }
 }
 
+// --- checks if user can view a course — either enrolled or instructor
 // checks if user can grade quizzes for a course — either course instructor or platform evaluator role
 export async function requireGradingPermission(
     db: DatabaseReader,
@@ -101,4 +102,20 @@ export async function requireGradingPermission(
     }
 
     throw new Error("Unauthorized") // neither
+}
+
+// --- Owner-only check — stricter than requireCourseRole ---
+// Used for: publishCourse, archiveCourse, deleteCourse, add/removeCoInstructor.
+export async function requireCourseOwner(
+    db: DatabaseReader,
+    userId: Id<"users">,
+    courseId: Id<"courses">
+): Promise<void> {
+    const course = await db.get(courseId);
+    if (!course) {
+        throw new Error("Course not found");
+    }
+    if (course.userId !== userId) {
+        throw new Error("Unauthorized: only the course owner can perform this action");
+    }
 }
