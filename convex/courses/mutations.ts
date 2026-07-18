@@ -339,3 +339,52 @@ export const deleteCourse = mutation({
         await ctx.db.delete(args.courseId);
     }
 })
+
+// --- addCoInstructor ---
+// a course owner can add a co-instructor to their course, which gives them the ability to edit the course and manage students
+export const addCoInstructor = mutation({
+  args: { courseId: v.id("courses"), userId: v.id("users"), role: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new ConvexError("Unauthenticated");
+
+    await requireCourseOwner(ctx.db, callerId, args.courseId);
+
+    const existing = await ctx.db
+      .query("course_instructors")
+      .withIndex("courseId_userId", q =>
+        q.eq("courseId", args.courseId).eq("userId", args.userId))
+      .first();
+    if (existing) throw new ConvexError("User is already a course instructor");
+
+    return await ctx.db.insert("course_instructors", {
+      courseId: args.courseId,
+      userId: args.userId,
+      role: args.role ?? "co-instructor",
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+  },
+});
+
+
+// --- removeCoInstructor ---
+// a course owner can remove a co-instructor from their course, which revokes their ability to edit the course and manage students
+export const removeCoInstructor = mutation({
+  args: { courseId: v.id("courses"), userId: v.id("users") },
+  handler: async (ctx, args) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new ConvexError("Unauthenticated");
+
+    await requireCourseOwner(ctx.db, callerId, args.courseId);
+
+    const row = await ctx.db
+      .query("course_instructors")
+      .withIndex("courseId_userId", q =>
+        q.eq("courseId", args.courseId).eq("userId", args.userId))
+      .first();
+    if (!row) throw new ConvexError("User is not a course instructor");
+
+    await ctx.db.patch(row._id, { deletedAt: Date.now() });
+  },
+});
