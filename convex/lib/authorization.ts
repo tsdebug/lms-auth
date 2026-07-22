@@ -119,3 +119,21 @@ export async function requireCourseOwner(
         throw new Error("Unauthorized: only the course owner can perform this action");
     }
 }
+
+
+export async function requireBatchInstructor(
+    db: DatabaseReader,
+    userId: Id<"users">,
+    batchId: Id<"batches">
+): Promise<void> {
+    const instructor = await db
+        .query("batch_instructors")
+        .withIndex("batchId_userId", (q) =>
+            q.eq("batchId", batchId).eq("userId", userId)
+        )
+        .first();
+
+    if (!instructor) {
+        throw new Error(`User ${userId} is not an instructor for batch ${batchId}`);
+    }
+}
