@@ -335,6 +335,7 @@ export default defineSchema({
   // Unchanged
   batches: defineTable({
     name: v.string(),
+    createdBy: v.id("users"),   // ADDED — permanent owner, mirrors courses.userId
     status: v.union(
       v.literal("upcoming"),
       v.literal("active"),
