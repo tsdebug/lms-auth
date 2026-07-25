@@ -70,16 +70,27 @@ export const getQuizForStudent = query({
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) throw new Error("Unauthenticated");
 
-    // 2. enrollment check — must be enrolled to see quiz
+    // 2. validate lesson belongs to requested course
+    const lesson = await ctx.db.get(args.lessonId);
+    if (!lesson) throw new Error("Lesson not found");
+
+    const chapter = await ctx.db.get(lesson.chapterId);
+    if (!chapter) throw new Error("Chapter not found");
+
+    if (chapter.courseId !== args.courseId) {
+      throw new Error("Lesson does not belong to the requested course");
+    }
+
+    // 3. enrollment check — must be enrolled to see quiz
     const enrollment = await ctx.db
       .query("enrollments")
       .withIndex("userId_courseId", (q) =>
-        q.eq("userId", authUserId).eq("courseId", args.courseId)
+        q.eq("userId", authUserId).eq("courseId", chapter.courseId)
       )
       .first();
-    if (!enrollment) throw new Error("Not enrolled in this course");
+    if (!enrollment || enrollment.deletedAt) throw new Error("Not enrolled in this course");
 
-    // 3. find quiz
+    // 4. find quiz
     const quiz = await ctx.db
       .query("quizzes")
       .withIndex("lessonId", (q) => q.eq("lessonId", args.lessonId))
@@ -87,14 +98,14 @@ export const getQuizForStudent = query({
 
     if (!quiz) return null;
 
-    // 4. get questions sorted by index
+    // 5. get questions sorted by index
     const questions = await ctx.db
       .query("q_questions")
       .withIndex("quizId", (q) => q.eq("quizId", quiz._id))
       .collect();
     questions.sort((a, b) => a.index - b.index);
 
-    // 5. enrich with answers — isCorrect STRIPPED for students
+    // 6. enrich with answers — isCorrect STRIPPED for students
     // student should not know the answer before submitting
     const questionsWithAnswers = await Promise.all(
       questions.map(async (question) => {
@@ -158,6 +169,24 @@ export const getQuizByLesson = query({
   handler: async (ctx, args) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) throw new Error("Unauthenticated");
+
+    // Lock this legacy query to valid participants only because it returns isCorrect.
+    const lesson = await ctx.db.get(args.lessonId);
+    if (!lesson) throw new Error("Lesson not found");
+
+    const chapter = await ctx.db.get(lesson.chapterId);
+    if (!chapter) throw new Error("Chapter not found");
+
+    const enrollment = await ctx.db
+      .query("enrollments")
+      .withIndex("userId_courseId", (q) =>
+        q.eq("userId", authUserId).eq("courseId", chapter.courseId)
+      )
+      .first();
+
+    if (!enrollment || enrollment.deletedAt) {
+      await requireCourseRole(ctx.db, authUserId, chapter.courseId);
+    }
 
     const quiz = await ctx.db
       .query("quizzes")
@@ -441,14 +470,21 @@ export const getQuizByChapterForStudent = query({
     const authUserId = await getAuthUserId(ctx)
     if (!authUserId) throw new Error("Unauthenticated")
 
+    const chapter = await ctx.db.get(args.chapterId)
+    if (!chapter) throw new Error("Chapter not found")
+
+    if (chapter.courseId !== args.courseId) {
+      throw new Error("Chapter does not belong to the requested course")
+    }
+
     // enrollment check — must be enrolled in the course
     const enrollment = await ctx.db
       .query("enrollments")
       .withIndex("userId_courseId", (q) =>
-        q.eq("userId", authUserId).eq("courseId", args.courseId)
+        q.eq("userId", authUserId).eq("courseId", chapter.courseId)
       )
       .first()
-    if (!enrollment) throw new Error("Not enrolled")
+    if (!enrollment || enrollment.deletedAt) throw new Error("Not enrolled")
 
     const quiz = await ctx.db
       .query("quizzes")
