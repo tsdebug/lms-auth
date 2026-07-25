@@ -76,8 +76,15 @@ export const createUserProfile = mutation({
 // updateUserProfile - allows authenticated users to update their profile fields
 export const updateUserProfile = mutation({
     args: {
+        fName: v.optional(v.string()),
+        lName: v.optional(v.string()),
         bio: v.optional(v.string()),
         expertise: v.optional(v.array(v.string())),
+        availability: v.optional(v.string()),
+        pfpUrl: v.optional(v.string()),
+        experienceLevel: v.optional(
+            v.union(v.literal("beginner"), v.literal("intermediate"), v.literal("advanced"))
+        ),
         slug: v.optional(v.string()),
     },
 
@@ -92,6 +99,17 @@ export const updateUserProfile = mutation({
         const existingUser = await ctx.db.get(authUserId);
         if (!existingUser) {
             throw new Error("User not found");
+        }
+
+        if (args.slug) {
+            const existingSlug = await ctx.db
+                .query("users")
+                .withIndex("slug", (q) => q.eq("slug", args.slug))
+                .first();
+
+            if (existingSlug && existingSlug._id !== authUserId) {
+                throw new Error("Slug already in use");
+            }
         }
 
         // 3. Update the user profile with provided fields
