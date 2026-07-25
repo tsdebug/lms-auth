@@ -15,7 +15,7 @@ export async function requireRole(
         .first();
 
     // step 2 — if the role doesn't even exist in the roles table, throw an error
-    if (!role) {
+    if (!role || role.deletedAt) {
         throw new Error(`Role ${roleName} not found`);
     }
 
@@ -26,7 +26,7 @@ export async function requireRole(
         .first();
 
     // step 4 — if no matching row, they don't have this role
-    if (!userRole) {
+    if (!userRole || userRole.deletedAt) {
         throw new Error(`User ${userId} does not have role ${roleName}`);
     }
 }
@@ -43,7 +43,7 @@ export async function requireCourseRole(
         .withIndex("courseId_userId", (q) => q.eq("courseId", courseId).eq("userId", userId))
         .first();
 
-    if (!instructor) {
+    if (!instructor || instructor.deletedAt) {
         throw new Error(`User ${userId} is not an instructor for course ${courseId}`);
     }
 }
@@ -62,7 +62,7 @@ export async function requireEnrollment(
         )
         .first()
 
-    if (!enrollment) {
+    if (!enrollment || enrollment.deletedAt) {
         throw new Error("Unauthorized: not enrolled in this course")
     }
 }
@@ -82,7 +82,7 @@ export async function requireGradingPermission(
         )
         .first()
 
-    if (instructor) return // they're an instructor, done
+    if (instructor && !instructor.deletedAt) return // they're an instructor, done
 
     // path 2 — platform evaluator role
     const evaluatorRole = await db
@@ -90,7 +90,7 @@ export async function requireGradingPermission(
         .withIndex("name", (q) => q.eq("name", "evaluator"))
         .first()
 
-    if (evaluatorRole) {
+    if (evaluatorRole && !evaluatorRole.deletedAt) {
         const hasRole = await db
             .query("user_roles")
             .withIndex("userId_roleId", (q) =>
@@ -98,7 +98,7 @@ export async function requireGradingPermission(
             )
             .first()
 
-        if (hasRole) return // they're an evaluator, done
+        if (hasRole && !hasRole.deletedAt) return // they're an evaluator, done
     }
 
     throw new Error("Unauthorized") // neither
@@ -121,6 +121,10 @@ export async function requireCourseOwner(
 }
 
 
+// Batch-Level Role check
+
+// --- requireBatchInstructor---
+// should throw an error if the user isn't an instructor on this batch
 export async function requireBatchInstructor(
     db: DatabaseReader,
     userId: Id<"users">,
@@ -133,7 +137,24 @@ export async function requireBatchInstructor(
         )
         .first();
 
-    if (!instructor) {
+    if (!instructor || instructor.deletedAt) {
         throw new Error(`User ${userId} is not an instructor for batch ${batchId}`);
+    }
+}
+
+
+// --- requireBatchOwner---
+// should throw an error if the user isn't the owner of this batch
+export async function requireBatchOwner(
+    db: DatabaseReader,
+    userId: Id<"users">,
+    batchId: Id<"batches">
+): Promise<void> {
+    const batch = await db.get(batchId);
+    if (!batch) {
+        throw new Error("Batch not found");
+    }
+    if (batch.createdBy !== userId) {
+        throw new Error("Unauthorized: only the batch owner can perform this action");
     }
 }
