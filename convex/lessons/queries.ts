@@ -69,24 +69,29 @@ export const getLessonContent = query({
     const authUserId = await getAuthUserId(ctx)
     if (!authUserId) throw new Error("Unauthenticated")
 
-    // 2. enrollment check — student must be enrolled
-    const enrollment = await ctx.db
-      .query("enrollments")
-      .withIndex("userId_courseId", (q) =>
-        q.eq("userId", authUserId).eq("courseId", args.courseId)
-      )
-      .first()
-    if (!enrollment) throw new Error("Not enrolled in this course")
-
-    // 3. get lesson
+    // 2. get lesson
     const lesson = await ctx.db.get(args.lessonId)
     if (!lesson) throw new Error("Lesson not found")
 
-    // 4. get chapter for context
+    // 3. get chapter for context
     const chapter = await ctx.db.get(lesson.chapterId)
     if (!chapter) throw new Error("Chapter not found")
 
-    // 5. check if this student has already completed this lesson
+    // 4. ensure lesson belongs to requested course
+    if (chapter.courseId !== args.courseId) {
+      throw new Error("Lesson does not belong to the requested course")
+    }
+
+    // 5. enrollment check — student must be enrolled
+    const enrollment = await ctx.db
+      .query("enrollments")
+      .withIndex("userId_courseId", (q) =>
+        q.eq("userId", authUserId).eq("courseId", chapter.courseId)
+      )
+      .first()
+    if (!enrollment || enrollment.deletedAt) throw new Error("Not enrolled in this course")
+
+    // 6. check if this student has already completed this lesson
     const completion = await ctx.db
       .query("lesson_completions")
       .withIndex("userId_lessonId", (q) =>

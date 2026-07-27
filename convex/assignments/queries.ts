@@ -16,21 +16,32 @@ export const getAssignmentsByLesson = query({
         const authUserId = await getAuthUserId(ctx)
         if (!authUserId) throw new Error("Unauthenticated")
 
-        // 2. access check — enrolled student or instructor
+        // 2. validate lesson -> chapter -> course chain
+        const lesson = await ctx.db.get(args.lessonId)
+        if (!lesson) throw new Error("Lesson not found")
+
+        const chapter = await ctx.db.get(lesson.chapterId)
+        if (!chapter) throw new Error("Chapter not found")
+
+        if (chapter.courseId !== args.courseId) {
+          throw new Error("Lesson does not belong to the requested course")
+        }
+
+        // 3. access check — enrolled student or instructor
         // check enrollment first (student path)
         const enrollment = await ctx.db
             .query("enrollments")
             .withIndex("userId_courseId", (q) =>
-                q.eq("userId", authUserId).eq("courseId", args.courseId)
+            q.eq("userId", authUserId).eq("courseId", chapter.courseId)
             )
             .first()
 
-        if (!enrollment) {
+        if (!enrollment || enrollment.deletedAt) {
             // not a student — must be a course instructor
-            await requireCourseRole(ctx.db, authUserId, args.courseId)
+          await requireCourseRole(ctx.db, authUserId, chapter.courseId)
         }
 
-        // 3. get assignments for this lesson
+        // 4. get assignments for this lesson
         const assignments = await ctx.db
             .query("assignments")
             .withIndex("lessonId", (q) => q.eq("lessonId", args.lessonId))
@@ -54,19 +65,27 @@ export const getAssignmentsByChapter = query({
         const authUserId = await getAuthUserId(ctx)
         if (!authUserId) throw new Error("Unauthenticated")
 
-        // 2. access check
+        // 2. validate chapter belongs to requested course
+        const chapter = await ctx.db.get(args.chapterId)
+        if (!chapter) throw new Error("Chapter not found")
+
+        if (chapter.courseId !== args.courseId) {
+          throw new Error("Chapter does not belong to the requested course")
+        }
+
+        // 3. access check
         const enrollment = await ctx.db
             .query("enrollments")
             .withIndex("userId_courseId", (q) =>
-                q.eq("userId", authUserId).eq("courseId", args.courseId)
+            q.eq("userId", authUserId).eq("courseId", chapter.courseId)
             )
             .first()
 
-        if (!enrollment) {
-            await requireCourseRole(ctx.db, authUserId, args.courseId)
+        if (!enrollment || enrollment.deletedAt) {
+          await requireCourseRole(ctx.db, authUserId, chapter.courseId)
         }
 
-        // 3. get assignments for this chapter
+        // 4. get assignments for this chapter
         const assignments = await ctx.db
             .query("assignments")
             .withIndex("chapterId", (q) => q.eq("chapterId", args.chapterId))
@@ -89,30 +108,47 @@ export const getAssignmentById = query({
         const authUserId = await getAuthUserId(ctx)
         if (!authUserId) throw new Error("Unauthenticated")
 
-        // 2. access check
+        // 2. get assignment and resolve its course for consistency
+        const assignment = await ctx.db.get(args.assignmentId)
+        if (!assignment || assignment.deletedAt) throw new Error("Assignment not found")
+
+        let resolvedCourseId
+        if (assignment.lessonId) {
+          const lesson = await ctx.db.get(assignment.lessonId)
+          if (!lesson) throw new Error("Lesson not found")
+          const chapter = await ctx.db.get(lesson.chapterId)
+          if (!chapter) throw new Error("Chapter not found")
+          resolvedCourseId = chapter.courseId
+        } else {
+          const chapter = await ctx.db.get(assignment.chapterId!)
+          if (!chapter) throw new Error("Chapter not found")
+          resolvedCourseId = chapter.courseId
+        }
+
+        if (resolvedCourseId !== args.courseId) {
+          throw new Error("Assignment does not belong to the requested course")
+        }
+
+        // 3. access check
         const enrollment = await ctx.db
             .query("enrollments")
             .withIndex("userId_courseId", (q) =>
-                q.eq("userId", authUserId).eq("courseId", args.courseId)
+            q.eq("userId", authUserId).eq("courseId", resolvedCourseId)
             )
             .first()
 
-        const isInstructor = !enrollment
+        const isInstructor = !enrollment || enrollment.deletedAt
             ? await ctx.db
                 .query("course_instructors")
                 .withIndex("courseId_userId", (q) =>
-                    q.eq("courseId", args.courseId).eq("userId", authUserId)
+              q.eq("courseId", resolvedCourseId).eq("userId", authUserId)
                 )
                 .first()
             : null
 
-        if (!enrollment && !isInstructor) {
+        if ((!enrollment || enrollment.deletedAt) && !isInstructor) {
             throw new Error("Unauthorized")
         }
-
-        // 3. get assignment
-        const assignment = await ctx.db.get(args.assignmentId)
-        if (!assignment || assignment.deletedAt) throw new Error("Assignment not found")
 
         return assignment
     },
