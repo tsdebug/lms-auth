@@ -1,0 +1,102 @@
+import { query } from "../_generated/server";
+import { v } from "convex/values";
+import { getAuthUserId } from "@convex-dev/auth/server";
+import { ConvexError } from "convex/values";
+
+// All batches a given instructor teaches
+export const getBatchesByInstructor = query({
+  args: { userId: v.optional(v.id("users")) },
+  handler: async (ctx, args) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new ConvexError("Unauthenticated");
+
+    // default to the caller's own batches unless they explicitly pass a userId
+    const targetUserId = args.userId ?? callerId;
+
+    const links = await ctx.db
+      .query("batch_instructors")
+      .withIndex("userId", q => q.eq("userId", targetUserId))
+      .collect();
+
+    const batches = await Promise.all(
+      links
+        .filter(l => !l.deletedAt)
+        .map(l => ctx.db.get(l.batchId))
+    );
+
+    return batches.filter(b => b !== null && !b.deletedAt);
+  },
+});
+
+// All students enrolled in a batch — instructor/owner only
+export const getBatchStudents = query({
+  args: { batchId: v.id("batches") },
+  handler: async (ctx, args) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new ConvexError("Unauthenticated");
+
+    const isInstructor = await ctx.db
+      .query("batch_instructors")
+      .withIndex("batchId_userId", q =>
+        q.eq("batchId", args.batchId).eq("userId", callerId))
+      .first();
+    if (!isInstructor) throw new ConvexError("Unauthorized");
+
+    const links = await ctx.db
+      .query("batch_students")
+      .withIndex("batchId", q => q.eq("batchId", args.batchId))
+      .collect();
+
+    const students = await Promise.all(
+      links
+        .filter(l => !l.deletedAt)
+        .map(async l => {
+          const user = await ctx.db.get(l.userId);
+          if (!user) return null;
+          return {
+            userId: user._id,
+            fName: user.fName,
+            lName: user.lName,
+            email: user.email,
+            pfpUrl: user.pfpUrl,
+            enrolledAt: l.createdAt,
+          };
+        })
+    );
+
+    return students.filter(s => s !== null);
+  },
+});
+
+// All batches a given student belongs to
+export const getBatchesByStudent = query({
+  args: { userId: v.optional(v.id("users")) },
+  handler: async (ctx, args) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new ConvexError("Unauthenticated");
+
+    const targetUserId = args.userId ?? callerId;
+
+    // students can only see their own batches; instructors/self can pass an explicit id
+    if (targetUserId !== callerId) {
+      const isInstructor = await ctx.db
+        .query("batch_instructors")
+        .withIndex("userId", q => q.eq("userId", callerId))
+        .first();
+      if (!isInstructor) throw new ConvexError("Unauthorized");
+    }
+
+    const links = await ctx.db
+      .query("batch_students")
+      .withIndex("userId", q => q.eq("userId", targetUserId))
+      .collect();
+
+    const batches = await Promise.all(
+      links
+        .filter(l => !l.deletedAt)
+        .map(l => ctx.db.get(l.batchId))
+    );
+
+    return batches.filter(b => b !== null && !b.deletedAt);
+  },
+}); 
