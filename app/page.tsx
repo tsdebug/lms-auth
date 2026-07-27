@@ -31,14 +31,16 @@ export default function Home() {
       return
     }
 
-    const selectedRole = user.roles?.[0]?.name as string | undefined
+    const roleNames = user.roles?.map((r) => r?.name).filter(Boolean) as string[]
+    const isTeacher = roleNames.includes("teacher")
+    const isStudent = roleNames.includes("student")
 
-    if (selectedRole === "teacher") {
+    if (isTeacher) {
       router.replace("/teacher/dashboard")
       return
     }
 
-    if (selectedRole === "student") {
+    if (isStudent) {
       router.replace("/student/dashboard")
       return
     }
