@@ -468,4 +468,28 @@ export default defineSchema({
     .index("userId", ["userId"])
     .index("courseId", ["courseId"])
     .index("userId_courseId", ["userId", "courseId"]),
+
+
+  // ─── Course Invitations ─────────────────────────────────────────────────
+  // owners can invite co-instuctors
+
+  course_invitations: defineTable({
+    courseId: v.id("courses"),
+    email: v.string(),
+    token: v.string(),
+    status: v.union(
+      v.literal("pending"),
+      v.literal("accepted"),
+      v.literal("revoked")
+    ),
+    invitedBy: v.id("users"),
+    createdAt: v.number(),
+    updatedAt: v.number(),
+    acceptedAt: v.optional(v.number()),
+    deletedAt: v.optional(v.number()),
+  })
+    .index("courseId", ["courseId"])
+    .index("token", ["token"])
+    .index("email", ["email"])
+    .index("courseId_email", ["courseId", "email"]),
 });
