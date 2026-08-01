@@ -35,7 +35,7 @@ export const createBatch = mutation({
   },
 });
 
-// --- updateBatch ---
+// --- addBatchInstructor ---
 // only batch instructors can update batches
 export const addBatchInstructor = mutation({
   args: { batchId: v.id("batches"), userId: v.id("users") },
@@ -45,7 +45,7 @@ export const addBatchInstructor = mutation({
     if (!callerId) throw new ConvexError("Unauthenticated");
 
     // 2. authorization check: make sure the caller is a batch instructor
-    await requireBatchInstructor(ctx.db, callerId, args.batchId);
+    await requireBatchOwner(ctx.db, callerId, args.batchId);
 
     // 3. check if the user is already an instructor for this batch
     const existing = await ctx.db
@@ -94,6 +94,8 @@ export const removeBatchInstructor = mutation({
   },
 });
 
+
+// --- updateBatchStatus ---
 export const updateBatchStatus = mutation({
   args: {
     batchId: v.id("batches"),
@@ -112,6 +114,8 @@ export const updateBatchStatus = mutation({
   },
 });
 
+
+// --- enrollStudentInBatch ---
 // REQ-BAT-003 — the important one: cascades enrollment into every course in the batch
 export const enrollStudentInBatch = mutation({
   args: { batchId: v.id("batches"), userId: v.id("users") },
