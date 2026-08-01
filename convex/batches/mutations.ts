@@ -156,6 +156,8 @@ export const enrollStudentInBatch = mutation({
       .collect();
 
     for (const bc of batchCourses) {
+      const course = await ctx.db.get(bc.courseId);
+      if (!course || course.status !== "published") continue;
       const alreadyEnrolled = await ctx.db
         .query("enrollments")
         .withIndex("userId_courseId", q =>
