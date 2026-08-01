@@ -99,4 +99,71 @@ export const getBatchesByStudent = query({
 
     return batches.filter(b => b !== null && !b.deletedAt);
   },
-}); 
+});
+
+// --- getBatchDetails ---
+// full detail for the batch management page: instructor names, linked
+// courses, student count. Instructor-only.
+export const getBatchDetails = query({
+  args: { batchId: v.id("batches") },
+  handler: async (ctx, args) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new ConvexError("Unauthenticated");
+
+    const isInstructor = await ctx.db
+      .query("batch_instructors")
+      .withIndex("batchId_userId", q =>
+        q.eq("batchId", args.batchId).eq("userId", callerId))
+      .first();
+    if (!isInstructor || isInstructor.deletedAt) throw new ConvexError("Unauthorized");
+
+    const batch = await ctx.db.get(args.batchId);
+    if (!batch) throw new ConvexError("Batch not found");
+
+    const instructorLinks = await ctx.db
+      .query("batch_instructors")
+      .withIndex("batchId", q => q.eq("batchId", args.batchId))
+      .collect();
+
+    const instructors = await Promise.all(
+      instructorLinks
+        .filter(l => !l.deletedAt)
+        .map(async l => {
+          const user = await ctx.db.get(l.userId);
+          return user
+            ? {
+              userId: user._id,
+              name: `${user.fName ?? ""} ${user.lName ?? ""}`.trim() || "Unknown",
+              email: user.email,
+              isOwner: batch.createdBy === user._id,
+            }
+            : null;
+        })
+    );
+
+    const courseLinks = await ctx.db
+      .query("batch_courses")
+      .withIndex("batchId", q => q.eq("batchId", args.batchId))
+      .collect();
+
+    const courses = await Promise.all(
+      courseLinks.map(async l => {
+        const course = await ctx.db.get(l.courseId);
+        return course ? { courseId: course._id, title: course.title, status: course.status } : null;
+      })
+    );
+
+    const studentLinks = await ctx.db
+      .query("batch_students")
+      .withIndex("batchId", q => q.eq("batchId", args.batchId))
+      .collect();
+    const studentCount = studentLinks.filter(l => !l.deletedAt).length;
+
+    return {
+      ...batch,
+      instructors: instructors.filter(Boolean),
+      courses: courses.filter(Boolean),
+      studentCount,
+    };
+  },
+});
