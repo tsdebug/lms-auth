@@ -158,3 +158,26 @@ export async function requireBatchOwner(
         throw new Error("Unauthorized: only the batch owner can perform this action");
     }
 }
+
+// Stricter content-management check — same as requireCourseRole, but
+// excludes evaluators. Evaluators grade only; they can't create/edit/delete
+// course content. Use requireCourseRole for VIEW access (any instructor role).
+// Use this for anything that CREATES, EDITS, or DELETES course content.
+export async function requireCourseContentRole(
+    db: DatabaseReader,
+    userId: Id<"users">,
+    courseId: Id<"courses">
+): Promise<void> {
+    const instructor = await db
+        .query("course_instructors")
+        .withIndex("courseId_userId", (q) => q.eq("courseId", courseId).eq("userId", userId))
+        .first();
+
+    if (!instructor || instructor.deletedAt) {
+        throw new Error(`User ${userId} is not an instructor for course ${courseId}`);
+    }
+
+    if (instructor.role === "evaluator") {
+        throw new Error("Evaluators cannot manage course content");
+    }
+}
