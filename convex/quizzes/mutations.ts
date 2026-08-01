@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireCourseRole, requireEnrollment } from "../lib/authorization";
+import { requireCourseContentRole, requireCourseRole, requireEnrollment } from "../lib/authorization";
 import { Id } from "../_generated/dataModel";
 
 // helper - resolves courseId from lessonId or chapterId (copied from assignments patterns)
@@ -71,11 +71,11 @@ export const createQuiz = mutation({
         } else {
             const chapter = await ctx.db.get(args.chapterId!)
             if (!chapter) throw new Error("Chapter not found")
-                
+
             courseId = chapter.courseId
         }
 
-        await requireCourseRole(ctx.db, authUserId, courseId)
+        await requireCourseContentRole(ctx.db, authUserId, courseId)
 
         // one quiz per lesson/chapter
         if (args.lessonId) {
@@ -129,7 +129,7 @@ export const createQuestion = mutation({
 
         // resolve courseId from quiz anchors and check role
         const courseId = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
-        await requireCourseRole(ctx.db, authUserId, courseId as any);
+        await requireCourseContentRole(ctx.db, authUserId, courseId as any);
 
         // 4. count existing questions to set display order index
         const existingQuestionsCount = await ctx.db
@@ -179,7 +179,7 @@ export const createAnswers = mutation({
 
         // resolve courseId from quiz anchors and check role
         const courseIdForAnswers = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
-        await requireCourseRole(ctx.db, authUserId, courseIdForAnswers as any);
+        await requireCourseContentRole(ctx.db, authUserId, courseIdForAnswers as any);
 
         // 4. Validation: only one correct answer allowed
         const correctAnswersCount = args.answers.filter((ans) => ans.isCorrect).length;
@@ -232,14 +232,16 @@ export const submitQuiz = mutation({
 
         // resolve courseId from quiz anchors and check enrollment
         const courseIdForSubmit = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
-        await requireEnrollment(ctx.db, authUserId, courseIdForSubmit as any);
+        await requireCourseContentRole(ctx.db, authUserId, courseIdForSubmit as any);
 
         // 4. Check if student already submitted (userId_quizId unique index)
-        const existingAttempt = await ctx.db
+        const existingAttempts = await ctx.db
             .query("quiz_attempts")
             .withIndex("userId_quizId", (q) => q.eq("userId", authUserId).eq("quizId", args.quizId))
-            .first();
-        if (existingAttempt?.completedAt) throw new Error("You have already submitted this quiz");
+            .collect();
+
+        const completedAttempt = existingAttempts.find((a) => a.completedAt !== undefined);
+        if (completedAttempt) throw new Error("You have already submitted this quiz");
 
         // 5. create attempt row
         const attemptId = await ctx.db.insert("quiz_attempts", {
@@ -327,7 +329,7 @@ export const updateQuiz = mutation({
 
         // resolve courseId from quiz anchors and check role
         const courseIdForUpdate = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
-        await requireCourseRole(ctx.db, authUserId, courseIdForUpdate as any);
+        await requireCourseContentRole(ctx.db, authUserId, courseIdForUpdate as any);
 
         // 3. update quiz - only update fields that were provided (non-undefined)
         const { quizId, ...fields } = args
@@ -359,7 +361,7 @@ export const updateQuestion = mutation({
         if (!quiz) throw new Error("Quiz not found")
 
         const courseIdForQuestion = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
-        await requireCourseRole(ctx.db, authUserId, courseIdForQuestion as any)
+        await requireCourseContentRole(ctx.db, authUserId, courseIdForQuestion as any)
 
         const { questionId, ...fields } = args
         await ctx.db.patch(args.questionId, {
@@ -392,7 +394,7 @@ export const deleteQuestion = mutation({
         if (!quiz) throw new Error("Quiz not found")
 
         const courseIdForDelete = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
-        await requireCourseRole(ctx.db, authUserId, courseIdForDelete as any)
+        await requireCourseContentRole(ctx.db, authUserId, courseIdForDelete as any)
 
         // delete all answers for this question first
         const answers = await ctx.db
@@ -438,7 +440,7 @@ export const updateAnswers = mutation({
 
         // resolve courseId from quiz anchors and check role
         const courseIdForAnswersUpdate = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
-        await requireCourseRole(ctx.db, authUserId, courseIdForAnswersUpdate as any)
+        await requireCourseContentRole(ctx.db, authUserId, courseIdForAnswersUpdate as any)
 
         // validate exactly one correct answer
         const correctAnswers = args.answers.filter((a) => a.isCorrect) // this statement is used for validation only, we will still insert all answers even if multiple are marked correct, frontend should prevent this but we check again here to be safe
@@ -492,7 +494,7 @@ export const deleteQuiz = mutation({
             const chapter = await ctx.db.get(quiz.chapterId!)
             courseId = chapter!.courseId
         }
-        await requireCourseRole(ctx.db, authUserId, courseId)
+        await requireCourseContentRole(ctx.db, authUserId, courseId)
 
         // delete all questions and their answers first
         const questions = await ctx.db

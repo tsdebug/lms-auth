@@ -1,7 +1,7 @@
 import { v } from "convex/values"
 import { mutation } from "../_generated/server"
 import { getAuthUserId } from "@convex-dev/auth/server"
-import { requireCourseRole, requireEnrollment, requireGradingPermission } from "../lib/authorization"
+import { requireCourseContentRole, requireCourseRole, requireEnrollment, requireGradingPermission } from "../lib/authorization"
 
 
 // helper - resolves courseId from lessonId or chapterId
@@ -59,7 +59,7 @@ export const createAssignment = mutation({
 
         // 3. resolve courseId and role check
         const courseId = await resolveCourseId(ctx.db, args.lessonId, args.chapterId)
-        await requireCourseRole(ctx.db, authUserId, courseId as any)
+        await requireCourseContentRole(ctx.db, authUserId, courseId as any)
 
         // 4. insert
         return await ctx.db.insert("assignments", {
@@ -101,7 +101,7 @@ export const updateAssignment = mutation({
 
         // 3. role check
         const courseId = await resolveCourseId(ctx.db, assignment.lessonId, assignment.chapterId)
-        await requireCourseRole(ctx.db, authUserId, courseId as any)
+        await requireCourseContentRole(ctx.db, authUserId, courseId as any)
 
         // 4. patch the updated fields - only those that were provided in the args
         const { assignmentId, ...fields } = args
@@ -129,7 +129,7 @@ export const deleteAssignment = mutation({
 
         // 3. role check
         const courseId = await resolveCourseId(ctx.db, assignment.lessonId, assignment.chapterId)
-        await requireCourseRole(ctx.db, authUserId, courseId as any)
+        await requireCourseContentRole(ctx.db, authUserId, courseId as any)
 
         // 4. check for existing submissions
         const submissions = await ctx.db

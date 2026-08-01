@@ -2,7 +2,7 @@
 import { v } from "convex/values"
 import { mutation } from "../_generated/server"
 import { getAuthUserId } from "@convex-dev/auth/server"
-import { requireCourseRole } from "../lib/authorization"
+import { requireCourseContentRole, requireCourseRole } from "../lib/authorization"
 
 // createChapter — adds a new chapter to a course
 export const createChapter = mutation({
@@ -22,7 +22,7 @@ export const createChapter = mutation({
         if (!course) throw new Error("Course not found")
 
         // 3. role check — must be instructor on this course
-        await requireCourseRole(ctx.db, authUserId, args.courseId)
+        await requireCourseContentRole(ctx.db, authUserId, args.courseId)
 
         // 4. get current chapter count to set the index
         // index determines display order — new chapter goes at the end
@@ -61,8 +61,8 @@ export const updateChapter = mutation({
         const chapter = await ctx.db.get(args.chapterId)
         if (!chapter) throw new Error("Chapter not found")
 
-        //   3. requireCourseRole using chapter.courseId
-        await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+        //   3. role check using courseId\
+        await requireCourseContentRole(ctx.db, authUserId, chapter.courseId)
 
         //   4. patch chapter with new title + updatedAt
         await ctx.db.patch(args.chapterId, {
@@ -89,8 +89,8 @@ export const deleteChapter = mutation({
         const chapter = await ctx.db.get(args.chapterId)
         if (!chapter) throw new Error("Chapter not found")
 
-        //   3. requireCourseRole
-        await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+        //   3. =role check
+        await requireCourseContentRole(ctx.db, authUserId, chapter.courseId)
 
         //   4. get all lessons in this chapter and delete each one
         //      delete all lessons in this chapter first

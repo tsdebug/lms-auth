@@ -1,7 +1,7 @@
 import { v } from "convex/values"
 import { mutation } from "../_generated/server"
 import { getAuthUserId } from "@convex-dev/auth/server"
-import { requireCourseRole, requireEnrollment } from "../lib/authorization"
+import { requireCourseContentRole, requireCourseRole, requireEnrollment } from "../lib/authorization"
 
 // createLesson — adds a new lesson to a chapter
 export const createLesson = mutation({
@@ -18,7 +18,7 @@ export const createLesson = mutation({
     const chapter = await ctx.db.get(args.chapterId)
     if (!chapter) throw new Error("Chapter not found")
 
-    await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+    await requireCourseContentRole(ctx.db, authUserId, chapter.courseId)
 
     // get current lesson count for index
     const existing = await ctx.db
@@ -56,7 +56,7 @@ export const updateLesson = mutation({
     const chapter = await ctx.db.get(lesson.chapterId)
     if (!chapter) throw new Error("Chapter not found")
 
-    await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+    await requireCourseContentRole(ctx.db, authUserId, chapter.courseId)
 
     const { lessonId, ...fields } = args
     await ctx.db.patch(args.lessonId, {
@@ -81,7 +81,7 @@ export const deleteLesson = mutation({
     const chapter = await ctx.db.get(lesson.chapterId)
     if (!chapter) throw new Error("Chapter not found")
 
-    await requireCourseRole(ctx.db, authUserId, chapter.courseId)
+    await requireCourseContentRole(ctx.db, authUserId, chapter.courseId)
 
     await ctx.db.delete(args.lessonId)
   },

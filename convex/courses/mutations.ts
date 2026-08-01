@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireRole, requireCourseRole, requireCourseOwner } from "../lib/authorization"
+import { requireRole, requireCourseRole, requireCourseOwner, requireCourseContentRole } from "../lib/authorization"
 
 // --- createCourse ---
 // a teacher can create a course, which starts in "draft" status
@@ -100,8 +100,8 @@ export const updateCourse = mutation({
         if (!existingCourse) throw new Error("Course not found");
 
         // 3. role check
-        await requireCourseOwner(ctx.db, authUserId, args.courseId);
-
+        await requireCourseContentRole(ctx.db, authUserId, args.courseId);
+        
         // 4. slug uniqueness check
         if (args.slug) {
             const existingSlug = await ctx.db
