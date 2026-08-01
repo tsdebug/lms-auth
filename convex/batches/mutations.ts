@@ -176,3 +176,53 @@ export const enrollStudentInBatch = mutation({
     }
   },
 });
+
+
+// --- addCourseToBatch ---
+// owner-only: links a course to a batch. Existing batch students are NOT retroactively enrolled — this only affects future enrollStudentInBatch calls.
+export const addCourseToBatch = mutation({
+  args: { batchId: v.id("batches"), courseId: v.id("courses") },
+  handler: async (ctx, args) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new ConvexError("Unauthenticated");
+
+    await requireBatchOwner(ctx.db, callerId, args.batchId);
+
+    const existing = await ctx.db
+      .query("batch_courses")
+      .withIndex("batchId_courseId", q =>
+        q.eq("batchId", args.batchId).eq("courseId", args.courseId))
+      .first();
+    if (existing) throw new ConvexError("Course is already linked to this batch");
+
+    const now = Date.now();
+    return await ctx.db.insert("batch_courses", {
+      batchId: args.batchId,
+      courseId: args.courseId,
+      createdAt: now,
+      updatedAt: now,
+    });
+  },
+});
+
+// --- removeCourseFromBatch ---
+// owner-only: unlinks a course. Does NOT un-enroll students already enrolled via the cascade — 
+// removing a course from a batch shouldn't silently pull students out of a course they're actively taking.
+export const removeCourseFromBatch = mutation({
+  args: { batchId: v.id("batches"), courseId: v.id("courses") },
+  handler: async (ctx, args) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new ConvexError("Unauthenticated");
+
+    await requireBatchOwner(ctx.db, callerId, args.batchId);
+
+    const row = await ctx.db
+      .query("batch_courses")
+      .withIndex("batchId_courseId", q =>
+        q.eq("batchId", args.batchId).eq("courseId", args.courseId))
+      .first();
+    if (!row) throw new ConvexError("Course is not linked to this batch");
+
+    await ctx.db.delete(row._id);
+  },
+});
