@@ -189,6 +189,50 @@ export const getCourseDetails = query({
   },
 });
 
+// getCourseInstructors — private, returns active instructors for the course
+export const getCourseInstructors = query({
+  args: { courseId: v.id("courses") },
+  handler: async (ctx, args) => {
+    const authUserId = await getAuthUserId(ctx);
+    if (!authUserId) throw new Error("Unauthorized");
+
+    const instructorRow = await ctx.db
+      .query("course_instructors")
+      .withIndex("courseId_userId", (q) => q.eq("courseId", args.courseId).eq("userId", authUserId))
+      .first();
+
+    if (!instructorRow || instructorRow.deletedAt) {
+      throw new Error("Unauthorized");
+    }
+
+    const instructorLinks = await ctx.db
+      .query("course_instructors")
+      .withIndex("courseId", (q) => q.eq("courseId", args.courseId))
+      .collect();
+
+    const course = await ctx.db.get(args.courseId);
+
+    const rows = await Promise.all(
+      instructorLinks
+        .filter((link) => !link.deletedAt)
+        .map(async (link) => {
+          const user = await ctx.db.get(link.userId);
+          return user
+            ? {
+                userId: user._id,
+                name: `${user.fName ?? ""} ${user.lName ?? ""}`.trim() || "Unknown",
+                email: user.email,
+                role: link.role ?? "co-instructor",
+                isOwner: course?.userId === user._id,
+              }
+            : null;
+        })
+    );
+
+    return rows.filter(Boolean);
+  },
+});
+
 // getCategories — public, no auth needed
 export const getCategories = query({
   args: {},

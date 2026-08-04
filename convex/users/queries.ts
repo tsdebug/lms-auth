@@ -70,6 +70,28 @@ export const getUserProfile = query({
   },
 });
 
+// findUserByEmail - lookup a user by email for admin/teacher flows
+export const findUserByEmail = query({
+  args: { email: v.string() },
+  handler: async (ctx, { email }) => {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) return null;
+
+    const user = await ctx.db
+      .query("users")
+      .withIndex("email", (q) => q.eq("email", normalizedEmail))
+      .first();
+
+    if (!user) return null;
+
+    return {
+      userId: user._id,
+      name: `${user.fName ?? ""} ${user.lName ?? ""}`.trim() || "Unknown",
+      email: user.email,
+    };
+  },
+});
+
 // getTeacherDirectory - for teacher directory page
 export const getTeacherDirectory = query({
   args: {
