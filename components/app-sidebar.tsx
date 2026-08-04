@@ -27,11 +27,13 @@ import {
   TrendingUp,
   Users,
   SearchIcon,
+  Layers, // ADDED — icon for Batches
 } from "lucide-react"
 
 const teacherNav = [
   { title: "Dashboard", url: "/teacher/dashboard", icon: <LayoutDashboard /> },
   { title: "My Courses", url: "/teacher/courses", icon: <BookOpen /> },
+  { title: "Batches", url: "/teacher/batches", icon: <Layers /> }, // ADDED
   { title: "Quizzes", url: "/teacher/quizzes", icon: <FileQuestionIcon /> },
   { title: "Assignments", url: "/teacher/assignments", icon: <ClipboardListIcon /> },
   { title: "Students", url: "/teacher/students", icon: <Users /> },
@@ -54,20 +56,18 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
   const isTeacher = currentUser?.roles?.some(r => r?.name === "teacher")
   const navItems = isTeacher ? teacherNav : studentNav
 
-  // the real user object to pass to NavUser
   const userForNav = {
     name: currentUser ? `${currentUser.fName ?? ""} ${currentUser.lName ?? ""}`.trim() : "Loading...",
     email: currentUser?.email ?? "",
     avatar: currentUser?.pfpUrl ?? "",
   }
 
-  // to handle the loading state of the current user, we can check if it's undefined (still loading) or null (not logged in)
   if (currentUser === undefined) {
-    return null // or a skeleton/spinner
+    return null
   }
 
   if (currentUser === null) {
-    return null // sidebar won't show if not logged in anyway
+    return null
   }
 
   return (
