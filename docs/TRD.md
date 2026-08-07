@@ -26,6 +26,7 @@
 - The system operates in a single region in v1. Multi-region deployment is a future concern.
 - Email notifications are out of scope for v1. No email provider integration is required.
 - All time-related data is stored as UTC. Timezone conversion is handled client-side.
+- The current UI includes teacher and student dashboards, batch management pages, invite acceptance, password reset, and public certificate verification.
 
 ### 1.3 Constraints
 
@@ -134,7 +135,7 @@ Format: `REQ-[domain]-[number]: [component] must [behaviour] when [condition].`
 |---|---|
 | REQ-BAT-001 | A batch must support multiple assigned instructors via the `batch_instructors` bridge table. |
 | REQ-BAT-002 | Batch status must be one of `upcoming`, `active`, or `completed` enforced at the schema level using `v.union(v.literal(...))`. |
-| REQ-BAT-003 | Enrolling a student in a batch must automatically enroll them in all courses associated with that batch via `batch_courses`. |
+| REQ-BAT-003 | Enrolling a student in a batch must automatically enroll them in all currently linked published courses associated with that batch via `batch_courses`. Adding a course later must not retroactively change existing batch enrollments. |
 
 ---
 
@@ -168,18 +169,35 @@ project-root/
 │   └── TRD.md
 │
 ├── app/                           # Next.js App Router
-│   ├── (public)/                  # Unauthenticated routes
+│   ├── certificate/[code]/
+│   ├── courses/
+│   ├── forgot-password/
+│   ├── invite/[token]/
+│   ├── login/
+│   ├── signup/
+│   ├── student/
+│   │   ├── assignments/
+│   │   ├── certificates/
 │   │   ├── courses/
-│   │   └── teachers/
-│   ├── (auth)/                    # Sign-in / sign-up
-│   └── (app)/                     # Authenticated routes
-│       ├── student/
-│       └── teacher/
+│   │   ├── dashboard/
+│   │   ├── progress/
+│   │   └── quizzes/
+│   └── teacher/
+│       ├── assignments/
+│       ├── batches/
+│       ├── courses/
+│       ├── dashboard/
+│       ├── quizzes/
+│       └── students/
 │
 ├── components/
 │   ├── ui/                        # shadcn/ui primitives
-│   ├── course/                    # Course-specific components
-│   ├── quiz/                      # Quiz player, quiz builder
+│   ├── assignments/
+│   ├── batches/
+│   ├── certificates/
+│   ├── courses/
+│   ├── editor/
+│   ├── quiz/
 │   └── layout/                    # App shell, nav, sidebar
 │
 ├── convex/
@@ -350,6 +368,15 @@ The schema is defined in `convex/schema.ts`. All tables follow these conventions
 | `publishCourse` | mutation | Owner | Validates completeness, sets `published` |
 | `archiveCourse` | mutation | Owner | Sets `archived`, removes from public listing |
 
+**Course Invitations**
+
+| Function | Type | Auth required | Description |
+|---|---|---|---|
+| `inviteCoInstructor` | mutation | Course owner | Sends a co-instructor invitation email |
+| `acceptCourseInvite` | mutation | Authenticated invitee | Accepts an invitation token |
+| `revokeCoInstructorInvite` | mutation | Course owner | Cancels a pending invite |
+| `getPendingInvitesForCourse` | query | Course owner | Returns pending invite rows for a course |
+
 **Chapters & Lessons**
 
 | Function | Type | Auth required | Description |
@@ -377,6 +404,21 @@ The schema is defined in `convex/schema.ts`. All tables follow these conventions
 | `submitAssignment` | mutation | Enrolled student | Creates submission, links files |
 | `gradeSubmission` | mutation | Teacher or evaluator | Sets score, feedback, `gradedBy` |
 
+**Batches**
+
+| Function | Type | Auth required | Description |
+|---|---|---|---|
+| `getBatchesByInstructor` | query | Teacher | Returns batches taught by the caller |
+| `getBatchDetails` | query | Batch instructor | Returns batch metadata, instructors, courses, and student count |
+| `getBatchStudents` | query | Batch instructor | Returns enrolled students for a batch |
+| `createBatch` | mutation | Teacher | Creates batch at `upcoming` status and adds owner as instructor |
+| `addBatchInstructor` | mutation | Batch owner | Adds another instructor to the batch |
+| `removeBatchInstructor` | mutation | Batch owner | Removes a non-owner instructor from the batch |
+| `updateBatchStatus` | mutation | Batch instructor | Updates batch status |
+| `enrollStudentInBatch` | mutation | Batch instructor or self | Enrolls a student and cascades published batch courses into course enrollments |
+| `addCourseToBatch` | mutation | Batch owner | Links a course to a batch |
+| `removeCourseFromBatch` | mutation | Batch owner | Unlinks a course from a batch |
+
 **Storage**
 
 | Function | Type | Auth required | Description |
@@ -384,6 +426,13 @@ The schema is defined in `convex/schema.ts`. All tables follow these conventions
 | `uploadMedia` | action | Owner or co-instructor | PUTs file to R2, inserts `media_files` row |
 | `deleteMedia` | action | Owner or co-instructor | Removes from R2, soft-deletes DB record |
 | `cleanupOrphanedFiles` | action | System (scheduled) | Reconciles R2 objects against `media_files` |
+
+**Certificates**
+
+| Function | Type | Auth required | Description |
+|---|---|---|---|
+| `getCertificateByCode` | query | Public | Verifies a certificate from a public verification code |
+| `getMyCertificates` | query | Authenticated student | Returns the caller's issued certificates |
 
 ### 4.5 File Storage Design
 

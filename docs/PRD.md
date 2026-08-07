@@ -227,8 +227,41 @@ Each certificate includes:
 Certificates can be downloaded and shared. The verification code allows anyone to confirm the authenticity of the certificate.
  
 ---
+
+## 12. Current Application Surfaces
+
+The product now includes dedicated authenticated portals for both teachers and students.
+
+### Teacher Portal
+
+Teachers can manage the platform through dedicated pages for:
+
+- Dashboard and course overview
+- Course creation, editing, and lesson editing
+- Quizzes and assignments
+- Batch management, including batch detail pages and instructor / course assignment
+- Student roster and progress visibility
+
+### Student Portal
+
+Students can access:
+
+- Dashboard and enrolled courses
+- Lesson playback and learning flow
+- Quiz attempts and assignment submission pages
+- Progress tracking and certificate history
+
+### Supporting Flows
+
+The product also includes:
+
+- Public certificate verification by code
+- Invitation acceptance for co-instructor onboarding
+- Forgot-password flow for account recovery
+
+---
  
-## 12. Teacher Discovery & Filtering
+## 13. Teacher Discovery & Filtering
  
 ### Purpose
  
@@ -310,7 +343,7 @@ Students can sort the teacher list based on:
  
 ---
  
-## 13. Initial Release Scope (Version 1)
+## 14. Initial Release Scope (Version 1)
  
 The first version of the platform focuses on the core learning experience.
  
@@ -323,10 +356,14 @@ Included in Version 1:
 - Lessons with media content
 - Quiz system
 - Basic progress tracking
+- Teacher and student dashboards
+- Batch management and batch detail views
+- Invitation acceptance and password reset flows
+- Public certificate verification
  
 ---
  
-## 14. Future Features (Out of Scope for Version 1)
+## 15. Future Features (Out of Scope for Version 1)
  
 The following features may be introduced in later versions:
  
