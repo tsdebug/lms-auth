@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@/convex/_generated/api";
 import { Id } from "@/convex/_generated/dataModel";
@@ -11,9 +11,14 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { AppSidebar } from "@/components/app-sidebar";
+import { SiteHeader } from "@/components/site-header";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { ArrowLeftIcon } from "lucide-react";
 
 export default function BatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>();
+  const router = useRouter();
   const id = batchId as Id<"batches">;
 
   const batch = useQuery(api.batches.queries.getBatchDetails, { batchId: id });
@@ -30,148 +35,167 @@ export default function BatchDetailPage() {
   if (batch === null) return <p className="p-6 text-muted-foreground">Batch not found.</p>;
 
   return (
-    <div className="space-y-6 p-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">{batch.name}</h1>
-          <p className="text-muted-foreground text-sm">
-            {batch.startDate} – {batch.endDate}
-          </p>
-        </div>
-        <Select
-          value={batch.status}
-          onValueChange={(value) =>
-            updateStatus({ batchId: id, status: value as "upcoming" | "active" | "completed" }).catch(
-              (err) => toast.error(err instanceof Error ? err.message : "Could not update status")
-            )
-          }
-        >
-          <SelectTrigger className="w-40">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="upcoming">Upcoming</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="completed">Completed</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+    <SidebarProvider
+      style={{
+        "--sidebar-width": "calc(var(--spacing) * 72)",
+        "--header-height": "calc(var(--spacing) * 12)",
+      } as React.CSSProperties}
+    >
+      <AppSidebar variant="inset" />
+      <SidebarInset>
+        <SiteHeader />
+        <div className="flex flex-1 flex-col gap-6 p-6 max-w-5xl">
+          <button
+            onClick={() => router.push("/teacher/batches")}
+            className="flex w-fit items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeftIcon className="size-3.5" />
+            Back to batches
+          </button>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Instructors */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Instructors</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              {batch.instructors.map((inst) =>
-                inst ? (
-                  <div key={inst.userId} className="flex items-center justify-between text-sm">
-                    <div>
-                      <span className="font-medium">{inst.name}</span>{" "}
-                      <span className="text-muted-foreground">({inst.email})</span>
-                      {inst.isOwner && <Badge variant="outline" className="ml-2">Owner</Badge>}
-                    </div>
-                    {!inst.isOwner && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() =>
-                          removeInstructor({ batchId: id, userId: inst.userId as Id<"users"> }).catch(
-                            (err) => toast.error(err instanceof Error ? err.message : "Could not remove")
-                          )
-                        }
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
-                ) : null
-              )}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-semibold">{batch.name}</h1>
+              <p className="text-sm text-muted-foreground">
+                {batch.startDate} – {batch.endDate}
+              </p>
             </div>
-            <AddInstructorByEmail batchId={id} onAdd={addInstructor} />
-          </CardContent>
-        </Card>
-
-        {/* Courses */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Linked courses</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              {batch.courses.length === 0 && (
-                <p className="text-sm text-muted-foreground">No courses linked yet.</p>
-              )}
-              {batch.courses.map((c) =>
-                c ? (
-                  <div key={c.courseId} className="flex items-center justify-between text-sm">
-                    <span>{c.title}</span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        removeCourse({ batchId: id, courseId: c.courseId as Id<"courses"> }).catch(
-                          (err) => toast.error(err instanceof Error ? err.message : "Could not remove")
-                        )
-                      }
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ) : null
-              )}
-            </div>
-            {myCourses && (
-              <Select
-                onValueChange={(courseId) =>
-                  addCourse({ batchId: id, courseId: courseId as Id<"courses"> }).catch((err) =>
-                    toast.error(err instanceof Error ? err.message : "Could not link course")
-                  )
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Add a course to this batch" />
-                </SelectTrigger>
-                <SelectContent>
-                  {myCourses
-                    .filter((c) => !batch.courses.some((bc) => bc?.courseId === c._id))
-                    .map((c) => (
-                      <SelectItem key={c._id} value={c._id}>
-                        {c.title}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Students */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Students ({batch.studentCount})</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {students === undefined && <p className="text-sm text-muted-foreground">Loading...</p>}
-          {students?.length === 0 && (
-            <p className="text-sm text-muted-foreground">No students enrolled yet.</p>
-          )}
-          <div className="space-y-2">
-            {students?.map((s) => (
-              <div key={s.userId} className="flex items-center justify-between text-sm">
-                <span>
-                  {`${s.fName ?? ""} ${s.lName ?? ""}`.trim() || "Unknown"}{" "}
-                  <span className="text-muted-foreground">({s.email})</span>
-                </span>
-              </div>
-            ))}
+            <Select
+              value={batch.status}
+              onValueChange={(value) =>
+                updateStatus({ batchId: id, status: value as "upcoming" | "active" | "completed" }).catch(
+                  (err) => toast.error(err instanceof Error ? err.message : "Could not update status")
+                )
+              }
+            >
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="upcoming">Upcoming</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </CardContent>
-      </Card>
-    </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Instructors */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Instructors</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  {batch.instructors.map((inst) =>
+                    inst ? (
+                      <div key={inst.userId} className="flex items-center justify-between text-sm">
+                        <div>
+                          <span className="font-medium">{inst.name}</span>{" "}
+                          <span className="text-muted-foreground">({inst.email})</span>
+                          {inst.isOwner && <Badge variant="outline" className="ml-2">Owner</Badge>}
+                        </div>
+                        {!inst.isOwner && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() =>
+                              removeInstructor({ batchId: id, userId: inst.userId as Id<"users"> }).catch(
+                                (err) => toast.error(err instanceof Error ? err.message : "Could not remove")
+                              )
+                            }
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    ) : null
+                  )}
+                </div>
+                <AddInstructorByEmail batchId={id} onAdd={addInstructor} />
+              </CardContent>
+            </Card>
+
+            {/* Courses */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Linked courses</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  {batch.courses.length === 0 && (
+                    <p className="text-sm text-muted-foreground">No courses linked yet.</p>
+                  )}
+                  {batch.courses.map((c) =>
+                    c ? (
+                      <div key={c.courseId} className="flex items-center justify-between text-sm">
+                        <span>{c.title}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() =>
+                            removeCourse({ batchId: id, courseId: c.courseId as Id<"courses"> }).catch(
+                              (err) => toast.error(err instanceof Error ? err.message : "Could not remove")
+                            )
+                          }
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ) : null
+                  )}
+                </div>
+                {myCourses && (
+                  <Select
+                    onValueChange={(courseId) =>
+                      addCourse({ batchId: id, courseId: courseId as Id<"courses"> }).catch((err) =>
+                        toast.error(err instanceof Error ? err.message : "Could not link course")
+                      )
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Add a course to this batch" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {myCourses
+                        .filter((c) => !batch.courses.some((bc) => bc?.courseId === c._id))
+                        .map((c) => (
+                          <SelectItem key={c._id} value={c._id}>
+                            {c.title}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Students */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Students ({batch.studentCount})</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {students === undefined && <p className="text-sm text-muted-foreground">Loading...</p>}
+              {students?.length === 0 && (
+                <p className="text-sm text-muted-foreground">No students enrolled yet.</p>
+              )}
+              <div className="space-y-2">
+                {students?.map((s) => (
+                  <div key={s.userId} className="flex items-center justify-between text-sm">
+                    <span>
+                      {`${s.fName ?? ""} ${s.lName ?? ""}`.trim() || "Unknown"}{" "}
+                      <span className="text-muted-foreground">({s.email})</span>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 
