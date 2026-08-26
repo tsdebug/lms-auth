@@ -42,7 +42,7 @@ export function SignupForm({
       await signIn("password", { email, password, flow: "signUp", fName, lName, role })
       if (role === "teacher") router.push("/teacher/dashboard")
       else router.push("/student/dashboard")
-    } catch (err) {
+    } catch {
       setError("Failed to create account. Try again.")
     } finally {
       setLoading(false)
@@ -151,7 +151,9 @@ export function SignupForm({
           <Button
             variant="outline"
             type="button"
-            onClick={() => signIn("github", { redirectTo: "/" })}
+            onClick={() =>
+              signIn("github", { redirectTo: `${window.location.origin}/` })
+            }
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
               <path

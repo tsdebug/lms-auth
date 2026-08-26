@@ -33,7 +33,7 @@ export function LoginForm({
     try {
       await signIn("password", { email, password, flow: "signIn" })
       router.push("/")
-    } catch (err) {
+    } catch {
       setError("Invalid email or password.")
     } finally {
       setLoading(false)
@@ -90,7 +90,9 @@ export function LoginForm({
           <Button
             variant="outline"
             type="button"
-            onClick={() => signIn("github", { redirectTo: "/" })}
+            onClick={() =>
+              signIn("github", { redirectTo: `${window.location.origin}/` })
+            }
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
               <path

@@ -19,6 +19,27 @@ npm install
 npm run dev
 ```
 
+## GitHub OAuth deployment
+
+GitHub OAuth is handled by Convex Auth. Configure the following in the same
+Convex deployment used by the deployed site:
+
+```text
+AUTH_GITHUB_ID=<GitHub OAuth app client ID>
+AUTH_GITHUB_SECRET=<GitHub OAuth app client secret>
+```
+
+In the GitHub OAuth app, set the callback URL to:
+
+```text
+https://<your-convex-deployment>.convex.site/api/auth/callback/github
+```
+
+For Vercel, set `NEXT_PUBLIC_CONVEX_URL` to the matching Convex cloud URL and
+redeploy. The `307` responses during sign-in are expected redirects in the
+OAuth flow; an OAuth failure usually appears as a GitHub callback or Convex
+Auth error after the redirect.
+
 If you're reading this README on GitHub and want to use this template, run:
 
 ```
