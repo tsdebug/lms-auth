@@ -5,7 +5,7 @@ import { ResendOTPPasswordReset } from "./ResendOTPPasswordReset";
 
 export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
   providers: [
-    GitHub, 
+    GitHub({ issuer: "https://github.com" }),
     Password({
       reset: ResendOTPPasswordReset,
       profile(params) {
