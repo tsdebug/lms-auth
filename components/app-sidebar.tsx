@@ -81,7 +81,7 @@ export function AppSidebar({ ...props }: AppSidebarProps) {
             >
               <a href="#">
                 <CommandIcon className="size-5!" />
-                <span className="text-base font-semibold">My LMS</span>
+                <span className="text-base font-semibold">Vidya Setu</span>
               </a>
             </SidebarMenuButton>
           </SidebarMenuItem>

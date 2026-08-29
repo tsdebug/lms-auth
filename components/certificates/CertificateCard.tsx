@@ -108,7 +108,7 @@ export function CertificateCard({
           fontWeight: 600,
           margin: `0 0 ${s(6)} 0`,
         }}>
-          LMS Platform
+          Vidya Setu
         </p>
 
         {/* title */}
