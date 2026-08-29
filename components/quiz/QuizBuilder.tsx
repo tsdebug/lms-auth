@@ -419,9 +419,11 @@ export function QuizBuilder({ lessonId, chapterId }: QuizBuilderProps) {
           <Input type="number" value={totalScore} onChange={(e) => setTotalScore(e.target.value)} className="w-32" />
           <p className="text-xs text-muted-foreground">Set the maximum score for this quiz. Distribute this across questions.</p>
         </div>
-        <Button size="sm" onClick={handleCreateQuiz} disabled={creatingQuiz || !quizTitle.trim()} className="w-fit">
-          {creatingQuiz ? "Creating..." : "Create Quiz"}
-        </Button>
+        <div className="flex justify-end">
+          <Button size="sm" onClick={handleCreateQuiz} disabled={creatingQuiz || !quizTitle.trim()} className="w-fit">
+            {creatingQuiz ? "Creating..." : "Create Quiz"}
+          </Button>
+        </div>
       </div>
     )
   }

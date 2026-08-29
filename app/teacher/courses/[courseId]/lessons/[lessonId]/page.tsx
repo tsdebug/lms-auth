@@ -24,6 +24,13 @@ import { QuizBuilder } from "@/components/quiz/QuizBuilder"
 import { useState } from "react"
 import { toast } from "sonner"
 import { ArrowLeftIcon } from "lucide-react"
+import { Card, CardHeader } from "@/components/ui/card"
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion"
 
 export default function LessonEditorPage() {
   const params = useParams()
@@ -43,6 +50,9 @@ export default function LessonEditorPage() {
   const [description, setDescription] = useState("")
   const [initialized, setInitialized] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [lessonOpen, setLessonOpen] = useState<string | undefined>(undefined)
+  const [quizOpen, setQuizOpen] = useState<string | undefined>(undefined)
+  const [assignmentOpen, setAssignmentOpen] = useState<string | undefined>(undefined)
 
   // pre-fill form when data loads
   // initialized flag prevents overwriting user edits on re-render
@@ -92,7 +102,7 @@ export default function LessonEditorPage() {
       <AppSidebar variant="inset" />
       <SidebarInset>
         <SiteHeader />
-        <div className="flex flex-1 flex-col gap-6 p-6 max-w-3xl">
+        <div className="flex flex-1 flex-col gap-6 p-6 max-w-4xl">
 
           {/* back button — returns to course editor */}
           <button
@@ -105,81 +115,135 @@ export default function LessonEditorPage() {
             Back to course
           </button>
 
-          {/* ── SECTION 1: Lesson Details ── */}
-          <div className="flex flex-col gap-4">
-            <h1 className="text-2xl font-semibold">Edit Lesson</h1>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Title</Label>
-              <Input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Lesson title"
-              />
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label>Lesson content</Label>
-              <p className="text-xs text-muted-foreground">
-                Write the material students will read when they open this lesson.
-              </p>
-              <RichTextEditor
-                value={description}
-                onChange={setDescription}
-                placeholder="Add lesson content, instructions, resources..."
-              />
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={handleCancel}
-                disabled={saving}
+          <Card className="border-muted/60 shadow-sm">
+            <CardHeader className="pb-0">
+              <Accordion
+                type="single"
+                collapsible
+                value={lessonOpen}
+                onValueChange={setLessonOpen}
               >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSave}
-                disabled={saving}
+                <AccordionItem value="lesson" className="border-b-0">
+                  <AccordionTrigger className="py-0 hover:no-underline">
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <h1 className="text-2xl font-semibold">Edit Lesson</h1>
+                      <span className="text-sm font-normal text-muted-foreground">
+                        Edit lesson details
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-4">
+                    <div className="flex flex-col gap-4">
+                      <div className="flex flex-col gap-1.5">
+                        <Label>Title</Label>
+                        <Input
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          placeholder="Lesson title"
+                        />
+                      </div>
+
+                      <div className="flex flex-col gap-1.5">
+                        <Label>Lesson content</Label>
+                        <p className="text-xs text-muted-foreground">
+                          Write the material students will read when they open this lesson.
+                        </p>
+                        <RichTextEditor
+                          value={description}
+                          onChange={setDescription}
+                          placeholder="Add lesson content, instructions, resources..."
+                        />
+                      </div>
+
+                      <div className="flex justify-end gap-2 pt-2">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={handleCancel}
+                          disabled={saving}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={handleSave}
+                          disabled={saving}
+                        >
+                          {saving ? "Saving..." : "Save Lesson"}
+                        </Button>
+                      </div>
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardHeader>
+          </Card>
+
+          <Card className="border-muted/60 shadow-sm">
+            <CardHeader className="pb-0">
+              <Accordion
+                type="single"
+                collapsible
+                value={quizOpen}
+                onValueChange={setQuizOpen}
               >
-                {saving ? "Saving..." : "Save Lesson"}
-              </Button>
-            </div>
-          </div>
+                <AccordionItem value="quiz" className="border-b-0">
+                  <AccordionTrigger className="py-0 hover:no-underline">
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <div>
+                        <h2 className="text-lg font-semibold">Quiz</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Add a quiz to test student understanding of this lesson.
+                        </p>
+                      </div>
+                      <span className="text-sm font-normal text-muted-foreground">
+                        Manage quiz
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-4">
+                    <QuizBuilder
+                      lessonId={lessonId}
+                      chapterId={lessonContent.chapterId}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardHeader>
+          </Card>
 
-          <div className="border-t" />
-
-          {/* ── SECTION 2: Quiz Builder ── */}
-          {/* QuizBuilder receives lessonId */}
-          {/* it fetches/creates the quiz for this lesson internally */}
-          <div className="flex flex-col gap-4">
-            <div>
-              <h2 className="text-lg font-semibold">Quiz</h2>
-              <p className="text-sm text-muted-foreground">
-                Add a quiz to test student understanding of this lesson.
-              </p>
-            </div>
-            <QuizBuilder lessonId={lessonId}
-              chapterId={lessonContent.chapterId} />
-          </div>
-
-          <div className="border-t" />
-
-          {/* ── SECTION 3: Assignment Builder ── */}
-          <div className="flex flex-col gap-4">
-            <div>
-              <h2 className="text-lg font-semibold">Assignment</h2>
-              <p className="text-sm text-muted-foreground">
-                Add an assignment for students to complete as part of this lesson or chapter.
-              </p>
-            </div>
-            <AssignmentBuilder
-              lessonId={lessonId}
-              chapterId={lessonContent.chapterId}
-              courseId={courseId}
-            />
-          </div>
+          <Card className="border-muted/60 shadow-sm">
+            <CardHeader className="pb-0">
+              <Accordion
+                type="single"
+                collapsible
+                value={assignmentOpen}
+                onValueChange={setAssignmentOpen}
+              >
+                <AccordionItem value="assignment" className="border-b-0">
+                  <AccordionTrigger className="py-0 hover:no-underline">
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <div>
+                        <h2 className="text-lg font-semibold">Assignment</h2>
+                        <p className="text-sm text-muted-foreground">
+                          Add an assignment for students to complete as part of this lesson or chapter.
+                        </p>
+                      </div>
+                      <span className="text-sm font-normal text-muted-foreground">
+                        Manage assignment
+                      </span>
+                    </div>
+                  </AccordionTrigger>
+                  <AccordionContent className="pt-4">
+                    <AssignmentBuilder
+                      lessonId={lessonId}
+                      chapterId={lessonContent.chapterId}
+                      courseId={courseId}
+                    />
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
+            </CardHeader>
+          </Card>
 
         </div>
       </SidebarInset>
