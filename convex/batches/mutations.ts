@@ -116,7 +116,7 @@ export const updateBatchStatus = mutation({
 
 
 // --- enrollStudentInBatch ---
-// REQ-BAT-003 — the important one: cascades enrollment into every course in the batch
+// cascades enrollment into every course in the batch
 export const enrollStudentInBatch = mutation({
   args: { batchId: v.id("batches"), userId: v.id("users") },
   handler: async (ctx, args) => {
@@ -168,6 +168,7 @@ export const enrollStudentInBatch = mutation({
         await ctx.db.insert("enrollments", {
           userId: args.userId,
           courseId: bc.courseId,
+          batchId: args.batchId, // ADDED: this enrollment came from the batch cascade
           enrolledAt: now,
           status: "active",
           updatedAt: now,
@@ -176,6 +177,55 @@ export const enrollStudentInBatch = mutation({
     }
   },
 });
+
+
+// --- removeStudentFromBatch ---
+// only batch instructors can remove students from a batch 
+// Does NOT touch their course enrollments by default - matches the philosophy in removeCourseFromBatch (don't silently pull access)
+// pass dropEnrollments=true to also remove their course enrollments
+// enrollments as "dropped" instead of deleting them, to preserve history and allow for reactivation if needed.
+export const removeStudentFromBatch = mutation({
+  args: {
+    batchId: v.id("batches"),
+    userId: v.id("users"),
+    dropEnrollments: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args) => {
+    const callerId = await getAuthUserId(ctx);
+    if (!callerId) throw new ConvexError("Unauthenticated");
+
+    await requireBatchInstructor(ctx.db, callerId, args.batchId);
+
+    const row = await ctx.db
+      .query("batch_students")
+      .withIndex("batchId_userId", q =>
+        q.eq("batchId", args.batchId).eq("userId", args.userId))
+      .first();
+    if (!row || row.deletedAt) throw new ConvexError("Student is not in this batch");
+
+    await ctx.db.patch(row._id, { deletedAt: Date.now() });
+
+    // optional cascade — only if explicitly requested
+    if (args.dropEnrollments) {
+      const enrollments = await ctx.db
+        .query("enrollments")
+        .withIndex("batchId", q => q.eq("batchId", args.batchId))
+        .collect();
+
+      const theirs = enrollments.filter(
+        e => e.userId === args.userId && e.status !== "dropped"
+      );
+
+      for (const e of theirs) {
+        await ctx.db.patch(e._id, {
+          status: "dropped",
+          updatedAt: Date.now(),
+        });
+      }
+    }
+  },
+});
+
 
 
 // --- addCourseToBatch ---
