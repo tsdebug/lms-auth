@@ -284,10 +284,10 @@ export default defineSchema({
   }).index("submissionId", ["submissionId"]),
 
   // ─── Enrollments ─────────────────────────────────────────────────────────
-  // Unchanged
   enrollments: defineTable({
     userId: v.id("users"),
     courseId: v.id("courses"),
+    batchId: v.optional(v.id("batches")), // ADDED: tracks whether this came from a batch enrollment or direct course enrollment
     enrolledAt: v.number(),
     status: v.union(
       v.literal("active"),
@@ -299,7 +299,8 @@ export default defineSchema({
   })
     .index("userId", ["userId"])
     .index("courseId", ["courseId"])
-    .index("userId_courseId", ["userId", "courseId"]),
+    .index("userId_courseId", ["userId", "courseId"])
+    .index("batchId", ["batchId"]), // Added index for batchId
 
   // ─── Lesson Completions ───────────────────────────────────────────────────
   // Unchanged
