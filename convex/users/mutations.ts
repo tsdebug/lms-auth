@@ -1,6 +1,7 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { mutation } from "../_generated/server";
 import { v } from "convex/values";
+import { ensureRole } from "../lib/authorization";
 
 // createUserProfile - called when user submits profile form for the first time, to save their name and role
 export const createUserProfile = mutation({
@@ -42,34 +43,8 @@ export const createUserProfile = mutation({
             updatedAt: Date.now(),
         });
 
-        // step 3: find the role's _id from the roles table
-        let role = await ctx.db
-            .query("roles")
-            .withIndex("name", (q) => q.eq("name", args.role))
-            .first();
-        if (!role) {
-            // Create the role if it doesn't exist
-            await ctx.db.insert("roles", {
-                name: args.role,
-                description: `Role for ${args.role}`,
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-            });
-            role = await ctx.db
-                .query("roles")
-                .withIndex("name", (q) => q.eq("name", args.role))
-                .first();
-        }
-        if (!role) {
-            throw new Error(`Failed to create or find role: ${args.role}`);
-        }
-        // step 4: write to user_roles table
-        await ctx.db.insert("user_roles", {
-            userId: authUserId,
-            roleId: role._id,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-        });
+        // step 3: ensure the selected platform role is assigned once
+        await ensureRole(ctx.db, authUserId, args.role);
     },
 });
 

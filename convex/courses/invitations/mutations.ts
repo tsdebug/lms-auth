@@ -1,7 +1,7 @@
 import { v, ConvexError } from "convex/values";
 import { mutation } from "../../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireCourseOwner } from "../../lib/authorization";
+import { ensureRole, requireCourseOwner } from "../../lib/authorization";
 import { internal } from "../../_generated/api"; 
 
 // --- inviteCoInstructor ---
@@ -145,6 +145,8 @@ export const acceptCourseInvitation = mutation({
       });
     }
     // if existing && !deletedAt, they're already an active instructor — no-op, just mark accepted below
+
+    await ensureRole(ctx.db, callerId, "teacher");
 
     await ctx.db.patch(invitation._id, {
       status: "accepted",

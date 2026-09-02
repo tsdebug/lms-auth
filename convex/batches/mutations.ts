@@ -1,7 +1,7 @@
 import { mutation } from "../_generated/server";
 import { v, ConvexError } from "convex/values";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireRole, requireBatchOwner, requireBatchInstructor } from "../lib/authorization";
+import { ensureRole, requireRole, requireBatchOwner, requireBatchInstructor } from "../lib/authorization";
 
 // --- createBatch ---
 // only teachers can create batches
@@ -57,6 +57,7 @@ export const addBatchInstructor = mutation({
 
     // 4. add the new instructor
     const now = Date.now();
+    await ensureRole(ctx.db, args.userId, "teacher");
     return await ctx.db.insert("batch_instructors", {
       batchId: args.batchId,
       userId: args.userId,
@@ -142,6 +143,7 @@ export const enrollStudentInBatch = mutation({
     if (existing) throw new ConvexError("Student already enrolled in this batch");
 
     const now = Date.now();
+    await ensureRole(ctx.db, args.userId, "student");
     await ctx.db.insert("batch_students", {
       batchId: args.batchId,
       userId: args.userId,

@@ -1,5 +1,40 @@
-import { DatabaseReader } from "../_generated/server"
+import { DatabaseReader, DatabaseWriter } from "../_generated/server"
 import { Id } from "../_generated/dataModel"
+
+export async function ensureRole(
+    db: DatabaseWriter,
+    userId: Id<"users">,
+    roleName: "student" | "teacher"
+): Promise<void> {
+    const role = await db
+        .query("roles")
+        .withIndex("name", (q) => q.eq("name", roleName))
+        .first();
+
+    if (!role || role.deletedAt) {
+        throw new Error(`Role ${roleName} not found`);
+    }
+
+    const existing = await db
+        .query("user_roles")
+        .withIndex("userId_roleId", (q) => q.eq("userId", userId).eq("roleId", role._id))
+        .first();
+
+    const now = Date.now();
+    if (existing) {
+        if (existing.deletedAt) {
+            await db.patch(existing._id, { deletedAt: undefined, updatedAt: now });
+        }
+        return;
+    }
+
+    await db.insert("user_roles", {
+        userId,
+        roleId: role._id,
+        createdAt: now,
+        updatedAt: now,
+    });
+}
 
 // --- Platform-Level Role check ---
 // should throw an error if the user doesn't have the role
