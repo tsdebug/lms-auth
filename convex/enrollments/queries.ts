@@ -114,3 +114,20 @@ export const getEnrollmentStatus = query({
     return enrollment ?? null
   },
 })
+
+// --- getEnrollmentsBySource --- 
+// for a student's enrollment in a specific course,
+// tells whether it came from a batch or self-enroll. 
+// Useful for "Remove from batch" UI to show what will be affected.
+export const getEnrollmentSource = query({
+  args: { userId: v.id("users"), courseId: v.id("courses") },
+  handler: async (ctx, args) => {
+    const enrollment = await ctx.db
+      .query("enrollments")
+      .withIndex("userId_courseId", q =>
+        q.eq("userId", args.userId).eq("courseId", args.courseId))
+      .first();
+    if (!enrollment) return null;
+    return { batchId: enrollment.batchId ?? null, status: enrollment.status };
+  },
+});
