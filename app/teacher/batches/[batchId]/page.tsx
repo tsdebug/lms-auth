@@ -16,6 +16,18 @@ import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { ArrowLeftIcon } from "lucide-react";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 export default function BatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>();
   const router = useRouter();
@@ -30,6 +42,9 @@ export default function BatchDetailPage() {
   const removeInstructor = useMutation(api.batches.mutations.removeBatchInstructor);
   const addCourse = useMutation(api.batches.mutations.addCourseToBatch);
   const removeCourse = useMutation(api.batches.mutations.removeCourseFromBatch);
+  const enrollStudent = useMutation(api.batches.mutations.enrollStudentInBatch);
+  const removeStudent = useMutation(api.batches.mutations.removeStudentFromBatch);
+  
 
   if (batch === undefined) return <p className="p-6 text-muted-foreground">Loading...</p>;
   if (batch === null) return <p className="p-6 text-muted-foreground">Batch not found.</p>;
@@ -188,9 +203,57 @@ export default function BatchDetailPage() {
                       {`${s.fName ?? ""} ${s.lName ?? ""}`.trim() || "Unknown"}{" "}
                       <span className="text-muted-foreground">({s.email})</span>
                     </span>
+
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive">
+                          Remove
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>
+                            Remove {`${s.fName ?? ""} ${s.lName ?? ""}`.trim() || "this student"} from the batch?
+                          </AlertDialogTitle>
+                          <AlertDialogDescription>
+                            They'll lose access to the batch itself. Their course enrollments that came from
+                            this batch can either stay active, or be dropped along with the batch removal —
+                            choose below.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter className="flex-col gap-2 sm:flex-row">
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <Button
+                            variant="outline"
+                            onClick={() =>
+                              removeStudent({ batchId: id, userId: s.userId as Id<"users">, dropEnrollments: false })
+                                .then(() => toast.success("Removed from batch — course access kept"))
+                                .catch((err) =>
+                                  toast.error(err instanceof Error ? err.message : "Could not remove")
+                                )
+                            }
+                          >
+                            Remove, keep courses
+                          </Button>
+                          <AlertDialogAction
+                            onClick={() =>
+                              removeStudent({ batchId: id, userId: s.userId as Id<"users">, dropEnrollments: true })
+                                .then(() => toast.success("Removed from batch and dropped their course enrollments"))
+                                .catch((err) =>
+                                  toast.error(err instanceof Error ? err.message : "Could not remove")
+                                )
+                            }
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Remove & drop courses
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 ))}
               </div>
+              <AddStudentByEmail batchId={id} onAdd={enrollStudent} />
             </CardContent>
           </Card>
         </div>
@@ -242,6 +305,60 @@ function AddInstructorByEmail({
                   toast.success("Instructor added");
                 })
                 .catch((err) => toast.error(err instanceof Error ? err.message : "Could not add"));
+            }}
+          >
+            Add
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+// small inline component — same pattern as AddInstructorByEmail, for students
+function AddStudentByEmail({
+  batchId,
+  onAdd,
+}: {
+  batchId: Id<"batches">;
+  onAdd: (args: { batchId: Id<"batches">; userId: Id<"users"> }) => Promise<unknown>;
+}) {
+  const [email, setEmail] = useState("");
+  const [searchEmail, setSearchEmail] = useState<string | null>(null);
+  const found = useQuery(
+    api.users.queries.findUserByEmail,
+    searchEmail ? { email: searchEmail } : "skip"
+  );
+
+  return (
+    <div className="space-y-2 border-t pt-4">
+      <div className="flex gap-2">
+        <Input
+          placeholder="Student's email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
+        <Button variant="outline" onClick={() => setSearchEmail(email.trim())}>
+          Find
+        </Button>
+      </div>
+      {searchEmail && found === null && (
+        <p className="text-sm text-muted-foreground">No account found with that email.</p>
+      )}
+      {found && (
+        <div className="flex items-center justify-between rounded-md border p-2 text-sm">
+          <span>{found.name} ({found.email})</span>
+          <Button
+            size="sm"
+            onClick={() => {
+              onAdd({ batchId, userId: found.userId as Id<"users"> })
+                .then(() => {
+                  setEmail("");
+                  setSearchEmail(null);
+                  toast.success("Student enrolled — added to all linked courses");
+                })
+                .catch((err) => toast.error(err instanceof Error ? err.message : "Could not enroll"));
             }}
           >
             Add
