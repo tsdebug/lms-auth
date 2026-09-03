@@ -232,7 +232,7 @@ export const submitQuiz = mutation({
 
         // resolve courseId from quiz anchors and check enrollment
         const courseIdForSubmit = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
-        await requireCourseContentRole(ctx.db, authUserId, courseIdForSubmit as any);
+        await requireEnrollment(ctx.db, authUserId, courseIdForSubmit as any);
 
         // 4. Check if student already submitted (userId_quizId unique index)
         const existingAttempts = await ctx.db
