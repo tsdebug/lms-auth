@@ -11,23 +11,26 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { useAuthActions } from "@convex-dev/auth/react" // added
-import { useRouter } from "next/navigation" // added
+import { useRouter, useSearchParams } from "next/navigation" // added
 import { useState } from "react" // added
 
 export function SignupForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
-  const { signIn } = useAuthActions() // added
-  const router = useRouter() // added
-  const [fName, setFName] = useState("") // added
-  const [lName, setLName] = useState("") // added
-  const [email, setEmail] = useState("") // added
-  const [password, setPassword] = useState("") // added
-  const [confirmPassword, setConfirmPassword] = useState("") // added
-  const [role, setRole] = useState<"student" | "teacher">("student") // added
-  const [error, setError] = useState("") // added
-  const [loading, setLoading] = useState(false) // added
+  const { signIn } = useAuthActions()
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get("redirect")
+  const prefillEmail = searchParams.get("email") // invite page passes this
+  const [fName, setFName] = useState("")
+  const [lName, setLName] = useState("")
+  const [email, setEmail] = useState(prefillEmail ?? "") // CHANGED — prefill from invite link
+  const [password, setPassword] = useState("")
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [role, setRole] = useState<"student" | "teacher">("student")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
   // added: wires form to Convex Auth
   const handleSubmit = async (e: React.FormEvent) => {
@@ -40,8 +43,13 @@ export function SignupForm({
     setLoading(true)
     try {
       await signIn("password", { email, password, flow: "signUp", fName, lName, role })
-      if (role === "teacher") router.push("/teacher/dashboard")
-      else router.push("/student/dashboard")
+      if (redirectTo) {
+        router.push(redirectTo)
+      } else if (role === "teacher") {
+        router.push("/teacher/dashboard")
+      } else {
+        router.push("/student/dashboard")
+      }
     } catch {
       setError("Failed to create account. Try again.")
     } finally {
@@ -152,7 +160,9 @@ export function SignupForm({
             variant="outline"
             type="button"
             onClick={() =>
-              signIn("github", { redirectTo: `${window.location.origin}/` })
+              signIn("github", {
+                redirectTo: `${window.location.origin}${redirectTo || "/"}`,
+              })
             }
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">

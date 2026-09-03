@@ -10,20 +10,22 @@ import {
   FieldSeparator,
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
-import { useAuthActions } from "@convex-dev/auth/react" // added
-import { useRouter } from "next/navigation" // added
-import { useState } from "react" // added
+import { useAuthActions } from "@convex-dev/auth/react" 
+import { useRouter, useSearchParams } from "next/navigation" 
+import { useState } from "react"
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"form">) {
-  const { signIn } = useAuthActions() // added
-  const router = useRouter() // added
-  const [email, setEmail] = useState("") // added
-  const [password, setPassword] = useState("") // added
-  const [error, setError] = useState("") // added
-  const [loading, setLoading] = useState(false) // added
+  const { signIn } = useAuthActions()
+  const router = useRouter() 
+  const searchParams = useSearchParams() 
+  const redirectTo = searchParams.get("redirect")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false) 
 
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,7 +34,7 @@ export function LoginForm({
     setLoading(true)
     try {
       await signIn("password", { email, password, flow: "signIn" })
-      router.push("/")
+      router.push(redirectTo || "/")
     } catch {
       setError("Invalid email or password.")
     } finally {
@@ -91,7 +93,9 @@ export function LoginForm({
             variant="outline"
             type="button"
             onClick={() =>
-              signIn("github", { redirectTo: `${window.location.origin}/` })
+              signIn("github", {
+                redirectTo: `${window.location.origin}${redirectTo || "/"}`,
+              })
             }
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
