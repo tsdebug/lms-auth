@@ -5,13 +5,12 @@ import { ConvexError } from "convex/values";
 
 // All batches a given instructor teaches
 export const getBatchesByInstructor = query({
-  args: { userId: v.optional(v.id("users")) },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
     const callerId = await getAuthUserId(ctx);
     if (!callerId) throw new ConvexError("Unauthenticated");
 
-    // default to the caller's own batches unless they explicitly pass a userId
-    const targetUserId = args.userId ?? callerId;
+    const targetUserId = callerId; // CHANGED — always self, no cross-user lookups
 
     const links = await ctx.db
       .query("batch_instructors")
@@ -70,12 +69,12 @@ export const getBatchStudents = query({
 
 // All batches a given student belongs to
 export const getBatchesByStudent = query({
-  args: { userId: v.optional(v.id("users")) },
-  handler: async (ctx, args) => {
+  args: {},
+  handler: async (ctx) => {
     const callerId = await getAuthUserId(ctx);
     if (!callerId) throw new ConvexError("Unauthenticated");
 
-    const targetUserId = args.userId ?? callerId;
+    const targetUserId = callerId; // CHANGED — always self
 
     // students can only see their own batches; instructors/self can pass an explicit id
     if (targetUserId !== callerId) {
