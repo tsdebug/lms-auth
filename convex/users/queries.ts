@@ -14,18 +14,20 @@ export const getCurrentUser = query({
     const user = await ctx.db.get(authUserId);
     if (!user) return null;
 
-    // step 3: fetch all roles for this user
+    // step 3: fetch all ACTIVE roles for this user
     const userRoles = await ctx.db
       .query("user_roles")
       .withIndex("userId", (q) => q.eq("userId", authUserId))
       .collect();
 
-    // step 4: get role details for each user_role entry
+    // step 4: get role details, filtering out soft-deleted memberships AND soft-deleted roles
     const roles = await Promise.all(
-      userRoles.map(async (ur) => {
-        const role = await ctx.db.get(ur.roleId);
-        return role;
-      })
+      userRoles
+        .filter((ur) => !ur.deletedAt) // ADDED
+        .map(async (ur) => {
+          const role = await ctx.db.get(ur.roleId);
+          return role && !role.deletedAt ? role : null; // CHANGED
+        })
     );
 
     return {
@@ -49,18 +51,20 @@ export const getUserProfile = query({
     const user = await ctx.db.get(userId);
     if (!user) return null;
 
-    // step 3: fetch all roles for this user
+    // step 3: fetch all ACTIVE roles for this user
     const userRoles = await ctx.db
       .query("user_roles")
       .withIndex("userId", (q) => q.eq("userId", userId))
       .collect();
 
-    // step 4: get role details
+    // step 4: get role details, filtering out soft-deleted memberships AND soft-deleted roles
     const roles = await Promise.all(
-      userRoles.map(async (ur) => {
-        const role = await ctx.db.get(ur.roleId);
-        return role;
-      })
+      userRoles
+        .filter((ur) => !ur.deletedAt) // ADDED
+        .map(async (ur) => {
+          const role = await ctx.db.get(ur.roleId);
+          return role && !role.deletedAt ? role : null; // CHANGED
+        })
     );
 
     return {
@@ -113,15 +117,16 @@ export const getTeacherDirectory = query({
 
     if (!teacherRole) return [];
 
-    // step 2: get all user_roles entries for teachers
+    // step 2: get all ACTIVE user_roles entries for teachers
     const teacherUserRoles = await ctx.db
       .query("user_roles")
       .withIndex("roleId", (q) => q.eq("roleId", teacherRole._id))
       .collect();
+    const activeTeacherUserRoles = teacherUserRoles.filter((ur) => !ur.deletedAt); // ADDED
 
     // step 3: fetch user profiles for each teacher
     const teachers = await Promise.all(
-      teacherUserRoles.map(async (ur) => {
+      activeTeacherUserRoles.map(async (ur) => { // CHANGED
         const user = await ctx.db.get(ur.userId);
         return user;
       })
