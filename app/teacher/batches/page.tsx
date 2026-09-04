@@ -110,9 +110,7 @@ export default function TeacherBatchesPage() {
           {batches !== undefined && batches.length === 0 && (
             <div className="flex flex-col items-center gap-3 rounded-lg border border-dashed py-16 text-center">
               <p className="text-sm text-muted-foreground">No batches yet.</p>
-              <Button asChild>
-                <Link href="/teacher/batches/new">Create your first batch</Link>
-              </Button>
+              <CreateBatchDialog />
             </div>
           )}
 
