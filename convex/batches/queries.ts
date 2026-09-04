@@ -39,7 +39,7 @@ export const getBatchStudents = query({
       .withIndex("batchId_userId", q =>
         q.eq("batchId", args.batchId).eq("userId", callerId))
       .first();
-    if (!isInstructor) throw new ConvexError("Unauthorized");
+    if (!isInstructor || isInstructor.deletedAt) throw new ConvexError("Unauthorized");
 
     const links = await ctx.db
       .query("batch_students")

@@ -167,7 +167,7 @@ export const getCourseDetails = query({
 
       // throw "Not found" rather than "Unauthorized" to avoid leaking
       // that the course exists at all to random users
-      if (!isInstructor) throw new Error("Not found");
+      if (!isInstructor || isInstructor.deletedAt) throw new Error("Not found"); 
     }
 
     const chapters = await ctx.db
