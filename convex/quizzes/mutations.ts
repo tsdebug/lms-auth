@@ -51,9 +51,9 @@ export const createQuiz = mutation({
         const authUserId = await getAuthUserId(ctx)
         if (!authUserId) throw new Error("Unauthenticated")
 
-        // must have at least one anchor
-        if (!args.lessonId && !args.chapterId) {
-            throw new Error("Quiz must be attached to a lesson or a chapter")
+        // quizzes must belong to exactly one content level
+        if ((args.lessonId && args.chapterId) || (!args.lessonId && !args.chapterId)) {
+            throw new Error("Quiz must be attached to either a lesson or a chapter")
         }
 
         // resolve courseId to check instructor role

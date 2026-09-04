@@ -325,7 +325,14 @@ export const getAllQuizzesForTeacher = query({
         return quizzes.flat()
       })
     )
-    return result.flat()
+    const quizzes = result.flat()
+    const uniqueQuizzes = new Map<string, (typeof quizzes)[number]>()
+
+    for (const quiz of quizzes) {
+      uniqueQuizzes.set(String(quiz._id), quiz)
+    }
+
+    return Array.from(uniqueQuizzes.values())
   },
 })
 
