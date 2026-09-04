@@ -102,17 +102,41 @@ export const getPublishedCourses = query({
   },
 })
 
-// getCoursesByTeacher — private, returns teacher's own courses
+// getCoursesByTeacher — private, returns owned and co-instructed courses
 export const getCoursesByTeacher = query({
   args: {},
   handler: async (ctx) => {
     const authUserId = await getAuthUserId(ctx);
     if (!authUserId) throw new Error("Unauthorized");
 
-    const courses = await ctx.db
+    // owned courses
+    const ownedCourses = await ctx.db
       .query("courses")
       .withIndex("userId", (q) => q.eq("userId", authUserId))
       .collect();
+
+    // courses where this user is an active co-instructor (not the owner)
+    const instructorLinks = await ctx.db
+      .query("course_instructors")
+      .withIndex("userId", (q) => q.eq("userId", authUserId))
+      .collect();
+
+    const coInstructedCourses = await Promise.all(
+      instructorLinks
+        .filter((link) => !link.deletedAt)
+        .map((link) => ctx.db.get(link.courseId))
+    );
+
+    // merge, de-duping by _id (owner won't also appear via course_instructors
+    // for their own course since createCourse doesn't insert an owner row there,
+    // but this guards against it regardless)
+    const seen = new Set(ownedCourses.map((c) => c._id));
+    const merged = [
+      ...ownedCourses,
+      ...coInstructedCourses.filter((c) => c && !seen.has(c._id)),
+    ];
+
+    const courses = merged.filter(Boolean) as typeof ownedCourses;
 
     const enrichedCourses = await Promise.all(
       courses.map(async (course) => {
@@ -167,7 +191,7 @@ export const getCourseDetails = query({
 
       // throw "Not found" rather than "Unauthorized" to avoid leaking
       // that the course exists at all to random users
-      if (!isInstructor || isInstructor.deletedAt) throw new Error("Not found"); 
+      if (!isInstructor || isInstructor.deletedAt) throw new Error("Not found");
     }
 
     const chapters = await ctx.db
@@ -219,12 +243,12 @@ export const getCourseInstructors = query({
           const user = await ctx.db.get(link.userId);
           return user
             ? {
-                userId: user._id,
-                name: `${user.fName ?? ""} ${user.lName ?? ""}`.trim() || "Unknown",
-                email: user.email,
-                role: link.role ?? "co-instructor",
-                isOwner: course?.userId === user._id,
-              }
+              userId: user._id,
+              name: `${user.fName ?? ""} ${user.lName ?? ""}`.trim() || "Unknown",
+              email: user.email,
+              role: link.role ?? "co-instructor",
+              isOwner: course?.userId === user._id,
+            }
             : null;
         })
     );
