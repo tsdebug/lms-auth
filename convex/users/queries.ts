@@ -5,6 +5,7 @@ import { Id } from "../_generated/dataModel";
 
 // getCurrentUser - for getting the current authenticated user's profile with roles
 export const getCurrentUser = query({
+  args: {},
   handler: async (ctx) => {
     // step 1: auth check
     const authUserId = await getAuthUserId(ctx);

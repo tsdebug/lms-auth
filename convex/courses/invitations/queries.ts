@@ -2,7 +2,6 @@ import { v, ConvexError } from "convex/values";
 import { query } from "../../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { requireCourseOwner } from "../../lib/authorization";
-import { internal } from "../../_generated/api";
 
 
 // --- getInvitationByToken ---

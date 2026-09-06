@@ -34,7 +34,6 @@ import {
   type VisibilityState,
 } from "@tanstack/react-table"
 import { Button } from "@/components/ui/button"
-import { Checkbox } from "@/components/ui/checkbox"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -59,7 +58,6 @@ import {
 } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import {
-  GripVerticalIcon,
   Columns3Icon,
   ChevronDownIcon,
   ChevronsLeftIcon,
@@ -68,8 +66,6 @@ import {
   ChevronsRightIcon,
 } from "lucide-react"
 
-// DragHandle — the grip icon on the left of each row
-// allows drag to reorder rows
 type TableRowId = {
   id?: UniqueIdentifier
   _id?: UniqueIdentifier
@@ -77,22 +73,6 @@ type TableRowId = {
 
 function getRowIdValue<TData extends TableRowId>(row: TData): UniqueIdentifier {
   return row.id ?? row._id ?? ""
-}
-
-function DragHandle({ id }: { id: UniqueIdentifier }) {
-  const { attributes, listeners } = useSortable({ id })
-  return (
-    <Button
-      {...attributes}
-      {...listeners}
-      variant="ghost"
-      size="icon"
-      className="size-7 text-muted-foreground hover:bg-transparent"
-    >
-      <GripVerticalIcon className="size-3 text-muted-foreground" />
-      <span className="sr-only">Drag to reorder</span>
-    </Button>
-  )
 }
 
 // DraggableRow — wraps each table row with drag functionality

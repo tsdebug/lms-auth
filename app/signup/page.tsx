@@ -2,6 +2,7 @@
 
 import { SignupForm } from "@/components/signup-form"
 import { GalleryVerticalEndIcon } from "lucide-react"
+import Image from "next/image"
 
 export default function SignupPage() {
   return (
@@ -22,9 +23,10 @@ export default function SignupPage() {
         </div>
       </div>
       <div className="relative hidden bg-muted lg:block">
-        <img
+        <Image
           src="/img.jpg"
           alt="Image"
+          fill
           className="absolute inset-0 h-full w-full object-cover"
         />
       </div>

@@ -62,7 +62,7 @@ export function CourseEditForm({ courseId, initialData, onDone }: CourseEditForm
   const initialDifficulty = normalizedDifficulty(initialData.difficultyLevel)
   const initialSlug = initialData.slug || ""
   const initialThumbnailUrl = initialData.thumbnailUrl || ""
-  const initialCategoryIds = initialData.categoryIds ?? []
+  const initialCategoryIds = useMemo(() => initialData.categoryIds ?? [], [initialData.categoryIds])
 
   const [title, setTitle] = useState(initialTitle)
   const [description, setDescription] = useState(initialDescription)
@@ -266,7 +266,7 @@ export function CourseEditForm({ courseId, initialData, onDone }: CourseEditForm
           <AlertDialogHeader>
             <AlertDialogTitle>Discard your changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              You've edited the course details but haven't saved. If you continue,
+              You&apos;ve edited the course details but haven&apos;t saved. If you continue,
               these edits will be discarded and reverted back to their last saved values.
             </AlertDialogDescription>
           </AlertDialogHeader>

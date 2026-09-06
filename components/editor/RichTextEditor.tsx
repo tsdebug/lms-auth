@@ -11,6 +11,32 @@ import {
   UndoIcon, RedoIcon,
 } from "lucide-react"
 import { useEffect } from "react"
+import type { ReactNode } from "react"
+
+function ToolbarButton({
+  onClick,
+  active,
+  title,
+  children,
+}: {
+  onClick: () => void
+  active?: boolean
+  title: string
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      className={`p-1.5 rounded hover:bg-muted transition-colors ${
+        active ? "bg-muted text-foreground" : "text-muted-foreground"
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
 
 interface RichTextEditorProps {
   value: string
@@ -63,31 +89,6 @@ export function RichTextEditor({
   }, [value, editor])
 
   if (!editor) return null
-
-  function ToolbarButton({
-    onClick,
-    active,
-    title,
-    children,
-  }: {
-    onClick: () => void
-    active?: boolean
-    title: string
-    children: React.ReactNode
-  }) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        title={title}
-        className={`p-1.5 rounded hover:bg-muted transition-colors ${
-          active ? "bg-muted text-foreground" : "text-muted-foreground"
-        }`}
-      >
-        {children}
-      </button>
-    )
-  }
 
   return (
     <div className={`rounded-lg border ${editable ? "focus-within:ring-1 focus-within:ring-ring" : "bg-muted/30"}`}>

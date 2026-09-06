@@ -1,8 +1,7 @@
 import { v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireCourseContentRole, requireCourseRole, requireEnrollment } from "../lib/authorization";
-import { Id } from "../_generated/dataModel";
+import { requireCourseContentRole, requireEnrollment } from "../lib/authorization";
 
 // helper - resolves courseId from lessonId or chapterId (copied from assignments patterns)
 async function resolveCourseId(
@@ -234,7 +233,36 @@ export const submitQuiz = mutation({
         const courseIdForSubmit = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
         await requireEnrollment(ctx.db, authUserId, courseIdForSubmit as any);
 
-        // 4. Check if student already submitted (userId_quizId unique index)
+        // Validate the complete answer set and all question/answer relationships
+        // server-side; IDs supplied by the client are not trusted.
+        const questions = await ctx.db
+            .query("q_questions")
+            .withIndex("quizId", (q) => q.eq("quizId", args.quizId))
+            .collect();
+        const questionsById = new Map(questions.map((question) => [String(question._id), question]));
+
+        if (args.answers.length !== questions.length) {
+            throw new Error("You must answer every question");
+        }
+
+        const submittedQuestionIds = new Set<string>();
+        const validatedAnswers = [];
+        for (const answer of args.answers) {
+            const question = questionsById.get(String(answer.questionId));
+            if (!question || submittedQuestionIds.has(String(answer.questionId))) {
+                throw new Error("Invalid quiz question submitted");
+            }
+
+            const chosenAnswer = await ctx.db.get(answer.answerId);
+            if (!chosenAnswer || chosenAnswer.questionId !== question._id) {
+                throw new Error("Invalid answer submitted");
+            }
+
+            submittedQuestionIds.add(String(answer.questionId));
+            validatedAnswers.push({ answer, question, chosenAnswer });
+        }
+
+        // 4. Check if student already submitted (userId_quizId index checked)
         const existingAttempts = await ctx.db
             .query("quiz_attempts")
             .withIndex("userId_quizId", (q) => q.eq("userId", authUserId).eq("quizId", args.quizId))
@@ -255,7 +283,7 @@ export const submitQuiz = mutation({
         })
 
         // 6. insert one user_answers row per submitted answer
-        for (const answer of args.answers) {
+        for (const { answer } of validatedAnswers) {
             await ctx.db.insert("user_answers", {
                 attemptId,
                 questionId: answer.questionId,
@@ -266,19 +294,8 @@ export const submitQuiz = mutation({
         }
 
         // 7. calculate score - for each answer check if chosen answer is marked isCorrect in db
-        let score = 0;
         const results = await Promise.all(
-            args.answers.map(async (answer) => {
-                // get the question to know its point value
-                const question = await ctx.db.get(answer.questionId)
-                // get the answer the student chose
-                const chosenAnswer = await ctx.db.get(answer.answerId)
-
-                // if the chosen answer is correct, add this question's score
-                if (chosenAnswer?.isCorrect && question) {
-                    score += question.quesScore;
-                }
-
+            validatedAnswers.map(async ({ answer, chosenAnswer }) => {
                 // find the correct answer for this question - return to frontend so student can see what was right
                 const correctAnswer = await ctx.db
                     .query("q_answers")
@@ -290,9 +307,15 @@ export const submitQuiz = mutation({
                     questionId: answer.questionId,
                     chosenAnswerId: answer.answerId,
                     correctAnswerId: correctAnswer?._id,
-                    isCorrect: chosenAnswer?.isCorrect ?? false,
+                    isCorrect: chosenAnswer.isCorrect,
                 }
             })
+        );
+
+        const score = validatedAnswers.reduce(
+            (total, { question, chosenAnswer }) =>
+                total + (chosenAnswer.isCorrect ? question.quesScore : 0),
+            0
         );
 
         // 8. patch attempt with final score + completion time
@@ -332,8 +355,8 @@ export const updateQuiz = mutation({
         await requireCourseContentRole(ctx.db, authUserId, courseIdForUpdate as any);
 
         // 3. update quiz - only update fields that were provided (non-undefined)
-        const { quizId, ...fields } = args
-        await ctx.db.patch(args.quizId, {
+        const { quizId: updateQuizId, ...fields } = args
+        await ctx.db.patch(updateQuizId, {
             ...fields,
             updatedAt: Date.now(),
         })
@@ -363,8 +386,8 @@ export const updateQuestion = mutation({
         const courseIdForQuestion = await resolveCourseId(ctx.db, quiz.lessonId, quiz.chapterId)
         await requireCourseContentRole(ctx.db, authUserId, courseIdForQuestion as any)
 
-        const { questionId, ...fields } = args
-        await ctx.db.patch(args.questionId, {
+        const { questionId: updateQuestionId, ...fields } = args
+        await ctx.db.patch(updateQuestionId, {
             ...fields,
             updatedAt: Date.now(),
         })

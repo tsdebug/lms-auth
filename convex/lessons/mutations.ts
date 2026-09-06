@@ -1,7 +1,7 @@
 import { v } from "convex/values"
 import { mutation } from "../_generated/server"
 import { getAuthUserId } from "@convex-dev/auth/server"
-import { requireCourseContentRole, requireCourseRole, requireEnrollment } from "../lib/authorization"
+import { requireCourseContentRole, requireEnrollment } from "../lib/authorization"
 
 // createLesson — adds a new lesson to a chapter
 export const createLesson = mutation({
@@ -58,8 +58,8 @@ export const updateLesson = mutation({
 
     await requireCourseContentRole(ctx.db, authUserId, chapter.courseId)
 
-    const { lessonId, ...fields } = args
-    await ctx.db.patch(args.lessonId, {
+    const { lessonId: updateLessonId, ...fields } = args
+    await ctx.db.patch(updateLessonId, {
       ...fields,
       updatedAt: Date.now(),
     })

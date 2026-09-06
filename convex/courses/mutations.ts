@@ -1,7 +1,7 @@
 import { ConvexError, v } from "convex/values";
 import { mutation } from "../_generated/server";
 import { getAuthUserId } from "@convex-dev/auth/server";
-import { requireRole, requireCourseRole, requireCourseOwner, requireCourseContentRole } from "../lib/authorization"
+import { requireRole, requireCourseOwner, requireCourseContentRole } from "../lib/authorization"
 
 // --- createCourse ---
 // a teacher can create a course, which starts in "draft" status
@@ -116,7 +116,7 @@ export const updateCourse = mutation({
         // 5. extract categoryIds AND courseId before patching
         // categoryIds must NOT be patched onto courses table
         // courseId is just the identifier, not a field to update
-        const { courseId, categoryIds, ...fieldsToUpdate } = args;
+        const { categoryIds, ...fieldsToUpdate } = args;
 
         // 6. patch only course fields onto courses table
         await ctx.db.patch(args.courseId, {

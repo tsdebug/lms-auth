@@ -115,7 +115,10 @@ export const getQuizForStudent = query({
           .collect();
 
         // strip isCorrect from every answer before returning
-        const safeAnswers = answers.map(({ isCorrect: _removed, ...rest }) => rest);
+        const safeAnswers = answers.map(({ isCorrect, ...rest }) => {
+          void isCorrect;
+          return rest;
+        });
 
         return { ...question, answers: safeAnswers };
       })
@@ -512,7 +515,10 @@ export const getQuizByChapterForStudent = query({
           .withIndex("questionId", (q) => q.eq("questionId", question._id))
           .collect()
         // strip isCorrect — student must not see this before submitting
-        const safeAnswers = answers.map(({ isCorrect: _removed, ...rest }) => rest)
+        const safeAnswers = answers.map(({ isCorrect, ...rest }) => {
+          void isCorrect
+          return rest
+        })
         return { ...question, answers: safeAnswers }
       })
     )

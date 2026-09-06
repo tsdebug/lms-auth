@@ -56,7 +56,7 @@ export function CourseCreateForm() {
     setError("")
     setIsSubmitting(true)
     try {
-      const courseId = await createCourse({
+      await createCourse({
         title: title.trim(),
         description: description.trim() || undefined,
         difficultyLevel: difficultyLevel || undefined,

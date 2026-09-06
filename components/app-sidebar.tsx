@@ -19,12 +19,8 @@ import {
 } from "@/components/ui/sidebar"
 import {
   CommandIcon,
-  Award,
   BookOpen,
-  DollarSign,
   LayoutDashboard,
-  Settings,
-  TrendingUp,
   Users,
   SearchIcon,
   Layers, // ADDED — icon for Batches
@@ -49,7 +45,7 @@ const studentNav = [
   { title: "Certificates", url: "/student/certificates", icon: <AwardIcon /> },
 ]
 
-interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> { }
+type AppSidebarProps = React.ComponentProps<typeof Sidebar>
 
 export function AppSidebar({ ...props }: AppSidebarProps) {
   const currentUser = useQuery(api.users.queries.getCurrentUser)

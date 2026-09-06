@@ -216,7 +216,7 @@ export default function BatchDetailPage() {
                             Remove {`${s.fName ?? ""} ${s.lName ?? ""}`.trim() || "this student"} from the batch?
                           </AlertDialogTitle>
                           <AlertDialogDescription>
-                            They'll lose access to the batch itself. Their course enrollments that came from
+                            They&apos;ll lose access to the batch itself. Their course enrollments that came from
                             this batch can either stay active, or be dropped along with the batch removal —
                             choose below.
                           </AlertDialogDescription>

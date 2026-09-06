@@ -2,7 +2,7 @@
 import { v } from "convex/values"
 import { mutation } from "../_generated/server"
 import { getAuthUserId } from "@convex-dev/auth/server"
-import { requireCourseContentRole, requireCourseRole } from "../lib/authorization"
+import { requireCourseContentRole } from "../lib/authorization"
 
 // createChapter — adds a new chapter to a course
 export const createChapter = mutation({

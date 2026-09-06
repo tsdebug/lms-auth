@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
+import { Field, FieldLabel } from "@/components/ui/field"
 
 export default function ForgotPasswordPage() {
   const { signIn } = useAuthActions()
@@ -42,7 +42,7 @@ export default function ForgotPasswordPage() {
         >
           <h1 className="text-2xl font-bold">Forgot password</h1>
           <p className="text-sm text-muted-foreground">
-            Enter your email and we'll send you a reset code.
+            Enter your email and we&apos;ll send you a reset code.
           </p>
           {error && <p className="text-sm text-red-500">{error}</p>}
           <Field>

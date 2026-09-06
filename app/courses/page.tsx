@@ -1,12 +1,12 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { useState } from "react"
 import { useQuery } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
 import { useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
 import {
     Select,
     SelectContent,
@@ -148,9 +148,11 @@ export default function CoursesPage() {
                                 {/* thumbnail */}
                                 <div className="aspect-video bg-muted flex items-center justify-center overflow-hidden">
                                     {course.thumbnailUrl ? (
-                                        <img
+                                        <Image
                                             src={course.thumbnailUrl}
                                             alt={course.title}
+                                            width={640}
+                                            height={360}
                                             className="w-full h-full object-cover"
                                         />
                                     ) : (

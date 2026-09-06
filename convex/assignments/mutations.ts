@@ -1,7 +1,7 @@
 import { v } from "convex/values"
 import { mutation } from "../_generated/server"
 import { getAuthUserId } from "@convex-dev/auth/server"
-import { requireCourseContentRole, requireCourseRole, requireEnrollment, requireGradingPermission } from "../lib/authorization"
+import { requireCourseContentRole, requireEnrollment, requireGradingPermission } from "../lib/authorization"
 
 
 // helper - resolves courseId from lessonId or chapterId
@@ -105,7 +105,7 @@ export const updateAssignment = mutation({
 
         // 4. patch the updated fields - only those that were provided in the args
         const { assignmentId, ...fields } = args
-        await ctx.db.patch(args.assignmentId, {
+        await ctx.db.patch(assignmentId, {
             ...fields,
             updatedAt: Date.now(),
         })
