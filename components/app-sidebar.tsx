@@ -22,7 +22,6 @@ import {
   BookOpen,
   LayoutDashboard,
   Users,
-  SearchIcon,
   Layers, // ADDED — icon for Batches
 } from "lucide-react"
 
@@ -37,7 +36,6 @@ const teacherNav = [
 
 const studentNav = [
   { title: "Dashboard", url: "/student/dashboard", icon: <LayoutDashboard /> },
-  { title: "Browse Courses", url: "/courses", icon: <SearchIcon /> },
   { title: "My Courses", url: "/student/courses", icon: <BookOpen /> },
   { title: "Quizzes", url: "/student/quizzes", icon: <FileQuestionIcon /> },
   { title: "Assignments", url: "/student/assignments", icon: <ClipboardListIcon /> },
