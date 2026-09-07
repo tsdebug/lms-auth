@@ -22,6 +22,7 @@ import type * as courses_invitations_mutations from "../courses/invitations/muta
 import type * as courses_invitations_queries from "../courses/invitations/queries.js";
 import type * as courses_mutations from "../courses/mutations.js";
 import type * as courses_queries from "../courses/queries.js";
+import type * as dashboard_queries from "../dashboard/queries.js";
 import type * as enrollments_mutations from "../enrollments/mutations.js";
 import type * as enrollments_queries from "../enrollments/queries.js";
 import type * as http from "../http.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   "courses/invitations/queries": typeof courses_invitations_queries;
   "courses/mutations": typeof courses_mutations;
   "courses/queries": typeof courses_queries;
+  "dashboard/queries": typeof dashboard_queries;
   "enrollments/mutations": typeof enrollments_mutations;
   "enrollments/queries": typeof enrollments_queries;
   http: typeof http;
