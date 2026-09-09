@@ -7,7 +7,7 @@
 //      queried by lessonId — chapter items have no lessonId
 //   2. resolvedQuiz and allAssignments merge both sources
 
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useQuery, useMutation } from "convex/react"
 import { api } from "@/convex/_generated/api"
 import { Id } from "@/convex/_generated/dataModel"
@@ -26,6 +26,7 @@ import { RichTextEditor } from "@/components/editor/RichTextEditor"
 export default function LessonViewerPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const courseId = params.courseId as Id<"courses">
   const lessonId = params.lessonId as Id<"lessons">
 
@@ -77,7 +78,9 @@ export default function LessonViewerPage() {
 
   // activeSection: which panel is expanded — null, "quiz", or "assignment"
   // clicking the same button again collapses it (toggle behavior)
-  const [activeSection, setActiveSection] = useState<"quiz" | "assignment" | null>(null)
+  const [activeSection, setActiveSection] = useState<"quiz" | "assignment" | null>(
+    searchParams.get("section") === "quiz" ? "quiz" : null
+  )
 
   function toggleSection(section: "quiz" | "assignment") {
     setActiveSection((prev) => (prev === section ? null : section))

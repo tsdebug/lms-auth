@@ -113,12 +113,16 @@ export const getStudentDashboardHighlights = query({
       .filter((qz) => !attemptedQuizIds.has(qz._id))
       .slice(0, 5)
       .map((qz) => {
-        const courseId = qz.chapterId
+        const navigationLesson = qz.lessonId
+          ? allLessons.find((lesson) => lesson._id === qz.lessonId)
+          : allLessons.find((lesson) => lesson.chapterId === qz.chapterId);
+        const courseId = navigationLesson
+          ? chapterToCourse.get(navigationLesson.chapterId)
+          : qz.chapterId
           ? chapterToCourse.get(qz.chapterId)
-          : qz.lessonId
-          ? chapterToCourse.get(lessonToChapter.get(qz.lessonId)!)
           : undefined;
-        return { quizId: qz._id, title: qz.title, courseId };
+        const navigationLessonId = navigationLesson?._id;
+        return { quizId: qz._id, title: qz.title, courseId, navigationLessonId };
       });
 
     // "continue learning" — most recently enrolled active course.

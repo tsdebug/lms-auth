@@ -7,7 +7,8 @@ import {
   BookOpenIcon,
   UsersIcon,
   AwardIcon,
-  ClockIcon,
+  FileEditIcon,
+  ListChecksIcon,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -27,6 +28,9 @@ function TeacherSectionCards() {
   const publishedCourses = courses?.filter(
     (c) => c.status === "published"
   ).length ?? 0
+  const draftCourses = courses?.filter(
+    (c) => c.status === "draft"
+  ).length ?? 0
 
   const cards = [
     {
@@ -42,10 +46,10 @@ function TeacherSectionCards() {
       trend: "across all courses",
     },
     {
-      title: "Avg Completion",
-      value: "—",
-      icon: TrendingUpIcon,
-      trend: "available after progress tracking",
+      title: "Draft Courses",
+      value: courses === undefined ? "..." : String(draftCourses),
+      icon: FileEditIcon,
+      trend: "still in progress",
     },
   ]
 
@@ -63,6 +67,10 @@ function StudentSectionCards() {
   const inProgress = enrollments?.filter(
     (e) => e?.enrollmentStatus === "active"
   ).length ?? 0
+  const lessonsCompleted = enrollments?.reduce(
+    (sum, enrollment) => sum + (enrollment?.completedLessons ?? 0),
+    0
+  ) ?? 0
 
   const cards = [
     {
@@ -81,13 +89,13 @@ function StudentSectionCards() {
       title: "In Progress",
       value: enrollments === undefined ? "..." : String(inProgress),
       icon: TrendingUpIcon,
-      trend: "",
+      trend: "active enrollments",
     },
     {
-      title: "Hours Learned",
-      value: "—",
-      icon: ClockIcon,
-      trend: "available after progress tracking",
+      title: "Lessons Completed",
+      value: enrollments === undefined ? "..." : String(lessonsCompleted),
+      icon: ListChecksIcon,
+      trend: "across your courses",
     },
   ]
 

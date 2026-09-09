@@ -92,18 +92,27 @@ export default function StudentDashboardPage() {
                     <CardTitle className="text-sm font-medium">Quizzes To Take</CardTitle>
                     <FileQuestionIcon className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
-                  <CardContent className="flex flex-col gap-2">
+                  <CardContent>
                     {highlights === undefined && (
                       <p className="text-sm text-muted-foreground">Loading...</p>
                     )}
                     {highlights && highlights.pendingQuizzes.length === 0 && (
                       <p className="text-sm text-muted-foreground">All caught up.</p>
                     )}
-                    {highlights?.pendingQuizzes.map((q) => (
-                      <div key={q.quizId} className="text-sm truncate">
-                        {q.title}
-                      </div>
-                    ))}
+                    {highlights?.pendingQuizzes.map((q) => {
+                      const quizHref = q.courseId && q.navigationLessonId
+                        ? `/student/courses/${q.courseId}/lessons/${q.navigationLessonId}?section=quiz`
+                        : "/student/quizzes"
+
+                      return (
+                        <div key={q.quizId} className="flex flex-col gap-2">
+                          <p className="text-sm font-medium truncate">{q.title}</p>
+                          <Button asChild size="sm" className="w-fit">
+                            <Link href={quizHref}>Take quiz</Link>
+                          </Button>
+                        </div>
+                      )
+                    })}
                   </CardContent>
                 </Card>
 
