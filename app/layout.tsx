@@ -25,9 +25,9 @@ export const metadata: Metadata = {
   description: "Vidya Setu learning platform",
   applicationName: "Vidya Setu",
   icons: {
-    icon: "/favicon.png",
-    shortcut: "/favicon.png",
-    apple: "/favicon.png",
+    icon: "/favicon_.png",
+    shortcut: "/favicon_.png",
+    apple: "/favicon_.png",
   },
 };
 
