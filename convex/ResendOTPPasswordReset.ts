@@ -3,6 +3,7 @@ import { Resend as ResendAPI } from "resend";
 
 export const ResendOTPPasswordReset = Resend({
   id: "resend-otp",
+  maxAge: 60 * 5,
   apiKey: process.env.AUTH_RESEND_KEY,
   async generateVerificationToken() {
     // generate 8 random digits without @oslojs/crypto
@@ -18,7 +19,7 @@ export const ResendOTPPasswordReset = Resend({
       from: "Vidya Setu <noreply@vidyasetu.qd.je>",
       to: [email],
       subject: "Reset your password",
-      text: `Your password reset code is: ${token}\n\nThis code expires shortly. If you didn't request this, ignore this email.`,
+      text: `Your password reset code is: ${token}\n\nThis code is valid for 5 minutes. If you didn't request this, ignore this email.`,
     });
     if (error) {
       throw new Error("Could not send reset email");
