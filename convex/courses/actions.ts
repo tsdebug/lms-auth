@@ -18,7 +18,7 @@ export const sendInviteEmail = internalAction({
     const inviteUrl = `${baseUrl}/invite/${args.token}`;
 
     const { error } = await resend.emails.send({
-      from: "LMS App <onboarding@resend.dev>", // matches existing sender identity
+      from: "Vidya Setu <noreply@vidyasetu.qd.je>", // matches existing sender identity
       to: [args.email],
       subject: "You've been invited to co-instruct a course",
       text: `You've been invited to join a course as a co-instructor.\n\nAccept here: ${inviteUrl}\n\nIf you don't have an account yet, you'll be asked to sign up first — the invitation will be applied automatically once you're signed in.`,

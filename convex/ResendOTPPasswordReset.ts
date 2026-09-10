@@ -15,7 +15,7 @@ export const ResendOTPPasswordReset = Resend({
   async sendVerificationRequest({ identifier: email, provider, token }) {
     const resend = new ResendAPI(provider.apiKey);
     const { error } = await resend.emails.send({
-      from: "LMS App <onboarding@resend.dev>",
+      from: "Vidya Setu <noreply@vidyasetu.qd.je>",
       to: [email],
       subject: "Reset your password",
       text: `Your password reset code is: ${token}\n\nThis code expires shortly. If you didn't request this, ignore this email.`,
