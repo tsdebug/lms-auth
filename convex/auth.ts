@@ -37,30 +37,20 @@ export const { auth, signIn, signOut, store, isAuthenticated } = convexAuth({
         updatedAt: Date.now(),
       });
 
-      const roleName = role ?? "student";
+      if (role) {
+        const roleDoc = await ctx.db
+          .query("roles")
+          .filter((q) => q.eq(q.field("name"), role))
+          .first();
 
-      let roleDoc = await ctx.db
-        .query("roles")
-        .filter((q) => q.eq(q.field("name"), roleName))
-        .first();
-
-      if (!roleDoc) {
-        const newRoleId = await ctx.db.insert("roles", {
-          name: roleName,
-          description: `Default role for ${roleName}`,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
-        roleDoc = await ctx.db.get(newRoleId);
-      }
-
-      if (roleDoc) {
-        await ctx.db.insert("user_roles", {
-          userId,
-          roleId: roleDoc._id,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        });
+        if (roleDoc && !roleDoc.deletedAt) {
+          await ctx.db.insert("user_roles", {
+            userId,
+            roleId: roleDoc._id,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          });
+        }
       }
 
       return userId;

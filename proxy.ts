@@ -9,6 +9,7 @@ const isSignInPage = createRouteMatcher(["/login", "/signup"])
 
 const isProtectedRoute = createRouteMatcher([
   "/",
+  "/onboarding",
   "/teacher(.*)",
   "/student(.*)",
 ]);

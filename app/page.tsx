@@ -45,7 +45,7 @@ export default function Home() {
       return
     }
 
-    router.replace("/student/dashboard")
+    router.replace("/onboarding")
   }, [user, router, timeoutReached])
 
   return (
